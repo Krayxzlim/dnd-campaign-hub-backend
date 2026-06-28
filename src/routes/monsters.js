@@ -98,14 +98,8 @@ router.get("/", authMiddleware, async (req, res) => {
   const { search = "", cr, type, page = 1 } = req.query;
 
   let qs = `?limit=50&page=${page}&document__slug=wotc-srd`;
-  // name__icontains: coincidencia parcial e insensible a mayúsculas.
-  // El parámetro `name` plano exige coincidencia EXACTA, por eso
-  // buscar "boar" no encontraba a "Boar".
   if (search) qs += `&name__icontains=${encodeURIComponent(search)}`;
   if (cr) qs += `&challenge_rating=${encodeURIComponent(cr)}`;
-  // type__iexact: el campo `type` en Open5e viene capitalizado
-  // ("Beast", "Humanoid"); iexact lo hace insensible a mayúsculas
-  // por si el filtro llega en otro casing.
   if (type) qs += `&type__iexact=${encodeURIComponent(type)}`;
 
   try {
@@ -145,7 +139,6 @@ router.post("/xp", authMiddleware, (req, res) => {
     xpTotal += xpUnit * cantidad;
   });
 
-  // Dificultad estimada según XP (valores aproximados para grupo de 4 lvl 5)
   let dificultad = "Trivial";
   if (xpTotal >= 1100) dificultad = "Fácil";
   if (xpTotal >= 2250) dificultad = "Media";
