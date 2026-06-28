@@ -1,142 +1,143 @@
-const low = require('lowdb');
-const FileSync = require('lowdb/adapters/FileSync');
-const lodashId = require('lodash-id');
-const path = require('path');
-const bcrypt = require('bcryptjs');
+require("dotenv").config();
+const { Pool } = require("pg");
 
-const adapter = new FileSync(path.join(__dirname, '../../db.json'));
-const db = low(adapter);
+const pool = new Pool({
+  host: process.env.PG_HOST || "localhost",
+  port: parseInt(process.env.PG_PORT || "5432"),
+  user: process.env.PG_USER || "dndadmin",
+  password: process.env.PG_PASSWORD || "dnd2024secure",
+  database: process.env.PG_DATABASE || "dndcampaign",
+});
 
-db._.mixin(lodashId);
+async function crearEsquema() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS usuarios (
+      id        TEXT PRIMARY KEY,
+      username  TEXT NOT NULL,
+      email     TEXT UNIQUE NOT NULL,
+      password  TEXT NOT NULL,
+      role      TEXT NOT NULL DEFAULT 'player',
+      avatar    TEXT DEFAULT '⚔️',
+      creado_en TIMESTAMPTZ DEFAULT NOW()
+    );
 
-// Default DB structure
-db.defaults({
-  users: [],
-  campaigns: [],
-  missions: [],
-  encounters: [],
-  monsters: [],
-  campaign_players: []
-}).write();
+    CREATE TABLE IF NOT EXISTS campanas (
+      id          TEXT PRIMARY KEY,
+      nombre      TEXT NOT NULL,
+      descripcion TEXT DEFAULT '',
+      dm_id       TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      estado      TEXT DEFAULT 'active',
+      imagen      TEXT DEFAULT '🗺️',
+      creado_en   TIMESTAMPTZ DEFAULT NOW()
+    );
 
-// Seed initial data if empty
-function seedIfEmpty() {
-  if (db.get('users').size().value() === 0) {
-    const dmPassword = bcrypt.hashSync('dm123456', 10);
-    const playerPassword = bcrypt.hashSync('player123', 10);
+    CREATE TABLE IF NOT EXISTS campana_jugadores (
+      id         TEXT PRIMARY KEY,
+      campana_id TEXT NOT NULL REFERENCES campanas(id) ON DELETE CASCADE,
+      jugador_id TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      UNIQUE(campana_id, jugador_id)
+    );
 
-    db.get('users').insert({
-      id: 'user-dm-1',
-      username: 'dungeon_master',
-      email: 'dm@dndcompanion.com',
-      password: dmPassword,
-      role: 'dm',
-      avatar: '🧙',
-      createdAt: new Date().toISOString()
-    }).write();
+    CREATE TABLE IF NOT EXISTS misiones (
+      id          TEXT PRIMARY KEY,
+      campana_id  TEXT NOT NULL REFERENCES campanas(id) ON DELETE CASCADE,
+      titulo      TEXT NOT NULL,
+      descripcion TEXT DEFAULT '',
+      estado      TEXT DEFAULT 'available',
+      recompensa  TEXT DEFAULT '',
+      dificultad  TEXT DEFAULT 'medium',
+      creado_en   TIMESTAMPTZ DEFAULT NOW()
+    );
 
-    db.get('users').insert({
-      id: 'user-player-1',
-      username: 'Arannis',
-      email: 'player@dndcompanion.com',
-      password: playerPassword,
-      role: 'player',
-      avatar: '⚔️',
-      createdAt: new Date().toISOString()
-    }).write();
+    CREATE TABLE IF NOT EXISTS mision_asignados (
+      mision_id  TEXT NOT NULL REFERENCES misiones(id) ON DELETE CASCADE,
+      jugador_id TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      PRIMARY KEY (mision_id, jugador_id)
+    );
 
-    db.get('users').insert({
-      id: 'user-player-2',
-      username: 'Zorathis',
-      email: 'zorathis@dndcompanion.com',
-      password: playerPassword,
-      role: 'player',
-      avatar: '🏹',
-      createdAt: new Date().toISOString()
-    }).write();
-
-    // Seed campaign
-    db.get('campaigns').insert({
-      id: 'campaign-1',
-      name: 'La Maldición de Strahd',
-      description: 'Los aventureros son atraídos a las brumosas tierras de Barovia, dominadas por el vampiro Strahd von Zarovich.',
-      dmId: 'user-dm-1',
-      status: 'active',
-      image: '🏰',
-      createdAt: new Date().toISOString()
-    }).write();
-
-    // Seed campaign players
-    db.get('campaign_players').insert({ id: 'cp-1', campaignId: 'campaign-1', playerId: 'user-player-1' }).write();
-    db.get('campaign_players').insert({ id: 'cp-2', campaignId: 'campaign-1', playerId: 'user-player-2' }).write();
-
-    // Seed missions
-    db.get('missions').insert({
-      id: 'mission-1',
-      campaignId: 'campaign-1',
-      title: 'Investigar la Taberna del Oso',
-      description: 'El posadero ha desaparecido misteriosamente. Los aldeanos piden ayuda para encontrarlo.',
-      status: 'active',
-      reward: '150 XP + 50 PO',
-      difficulty: 'easy',
-      assignedTo: ['user-player-1', 'user-player-2'],
-      createdAt: new Date().toISOString()
-    }).write();
-
-    db.get('missions').insert({
-      id: 'mission-2',
-      campaignId: 'campaign-1',
-      title: 'Eliminar a los Bandidos del Norte',
-      description: 'Un grupo de bandidos está atacando las caravanas. Debéis neutralizarlos.',
-      status: 'available',
-      reward: '200 XP + 100 PO',
-      difficulty: 'medium',
-      assignedTo: [],
-      createdAt: new Date().toISOString()
-    }).write();
-
-    db.get('missions').insert({
-      id: 'mission-3',
-      campaignId: 'campaign-1',
-      title: 'El Castillo de Ravenloft',
-      description: 'Confrontad al Conde Strahd en su propio castillo. Solo los más valientes sobreviven.',
-      status: 'available',
-      reward: '1000 XP + Artefacto Legendario',
-      difficulty: 'deadly',
-      assignedTo: [],
-      createdAt: new Date().toISOString()
-    }).write();
-
-    // Seed monsters
-    db.get('monsters').insert({ id: 'mon-1', name: 'Goblin', hp: 7, ac: 15, cr: '1/4', attack: '+4', damage: '1d6+2', type: 'Humanoide' }).write();
-    db.get('monsters').insert({ id: 'mon-2', name: 'Esqueleto', hp: 13, ac: 13, cr: '1/4', attack: '+4', damage: '1d6+2', type: 'No-Muerto' }).write();
-    db.get('monsters').insert({ id: 'mon-3', name: 'Zombi', hp: 22, ac: 8, cr: '1/4', attack: '+3', damage: '1d6+1', type: 'No-Muerto' }).write();
-    db.get('monsters').insert({ id: 'mon-4', name: 'Lobo', hp: 11, ac: 13, cr: '1/4', attack: '+4', damage: '2d4+2', type: 'Bestia' }).write();
-    db.get('monsters').insert({ id: 'mon-5', name: 'Orco', hp: 15, ac: 13, cr: '1/2', attack: '+5', damage: '1d12+3', type: 'Humanoide' }).write();
-    db.get('monsters').insert({ id: 'mon-6', name: 'Ogro', hp: 59, ac: 11, cr: '2', attack: '+6', damage: '2d8+4', type: 'Gigante' }).write();
-    db.get('monsters').insert({ id: 'mon-7', name: 'Troll', hp: 84, ac: 15, cr: '5', attack: '+7', damage: '2d6+4', type: 'Gigante' }).write();
-    db.get('monsters').insert({ id: 'mon-8', name: 'Vampiro Espectral', hp: 144, ac: 16, cr: '13', attack: '+9', damage: '1d8+5', type: 'No-Muerto' }).write();
-
-    // Seed encounter
-    db.get('encounters').insert({
-      id: 'enc-1',
-      campaignId: 'campaign-1',
-      name: 'Emboscada en el Bosque',
-      description: 'Los jugadores son emboscados por goblins mientras viajan.',
-      status: 'pending',
-      monsters: [
-        { monsterId: 'mon-1', name: 'Goblin', count: 4, currentHp: [7,7,7,7], maxHp: 7, ac: 15 },
-        { monsterId: 'mon-5', name: 'Orco Líder', count: 1, currentHp: [15], maxHp: 15, ac: 13 }
-      ],
-      initiativeOrder: [],
-      round: 0,
-      createdAt: new Date().toISOString()
-    }).write();
-
-    console.log('✦ Database seeded successfully');
-  }
+    CREATE TABLE IF NOT EXISTS encuentros (
+      id               TEXT PRIMARY KEY,
+      campana_id       TEXT NOT NULL REFERENCES campanas(id) ON DELETE CASCADE,
+      nombre           TEXT NOT NULL,
+      descripcion      TEXT DEFAULT '',
+      estado           TEXT DEFAULT 'pending',
+      monstruos        JSONB DEFAULT '[]',
+      orden_iniciativa JSONB DEFAULT '[]',
+      ronda            INTEGER DEFAULT 0,
+      xp_total         INTEGER DEFAULT 0,
+      dificultad_est   TEXT DEFAULT '',
+      creado_en        TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+  console.log("✦ Esquema PostgreSQL listo");
 }
 
-seedIfEmpty();
+async function sembrarDatos() {
+  const { rows } = await pool.query("SELECT id FROM usuarios LIMIT 1");
+  if (rows.length > 0) return;
 
-module.exports = db;
+  const bcrypt = require("bcryptjs");
+  const passDM = bcrypt.hashSync("dm123456", 10);
+  const passP = bcrypt.hashSync("player123", 10);
+
+  await pool.query(
+    `
+    INSERT INTO usuarios (id,username,email,password,role,avatar) VALUES
+      ('user-dm-1',     'dungeon_master','dm@dndcompanion.com',       $1,'dm',    '🧙'),
+      ('user-player-1', 'Arannis',       'player@dndcompanion.com',   $2,'player','⚔️'),
+      ('user-player-2', 'Zorathis',      'zorathis@dndcompanion.com', $2,'player','🏹')
+  `,
+    [passDM, passP],
+  );
+
+  await pool.query(`
+    INSERT INTO campanas (id,nombre,descripcion,dm_id,imagen) VALUES
+      ('campaign-1','La Maldición de Strahd',
+       'Los aventureros son atraídos a las brumosas tierras de Barovia.',
+       'user-dm-1','🏰')
+  `);
+
+  await pool.query(`
+    INSERT INTO campana_jugadores (id,campana_id,jugador_id) VALUES
+      ('cp-1','campaign-1','user-player-1'),
+      ('cp-2','campaign-1','user-player-2')
+  `);
+
+  await pool.query(`
+    INSERT INTO misiones (id,campana_id,titulo,descripcion,estado,recompensa,dificultad) VALUES
+      ('mission-1','campaign-1','Investigar la Taberna del Oso',
+       'El posadero ha desaparecido. Los aldeanos piden ayuda.','active','150 XP + 50 PO','easy'),
+      ('mission-2','campaign-1','Eliminar a los Bandidos del Norte',
+       'Bandidos atacan las caravanas.','available','200 XP + 100 PO','medium'),
+      ('mission-3','campaign-1','El Castillo de Ravenloft',
+       'Confrontad al Conde Strahd.','available','1000 XP + Artefacto','deadly')
+  `);
+
+  await pool.query(`
+    INSERT INTO mision_asignados (mision_id,jugador_id) VALUES
+      ('mission-1','user-player-1'),
+      ('mission-1','user-player-2')
+  `);
+
+  await pool.query(`
+    INSERT INTO encuentros (id,campana_id,nombre,descripcion,monstruos,xp_total,dificultad_est) VALUES
+      ('enc-1','campaign-1','Emboscada en el Bosque',
+       'Los jugadores son emboscados por goblins.',
+       '[
+         {"slug":"goblin","nombre":"Goblin","cantidad":4,"hp_max":7,"hp_actual":[7,7,7,7],"ca":15,"cr":"1/4","xp_unidad":50},
+         {"slug":"orc","nombre":"Orco Líder","cantidad":1,"hp_max":15,"hp_actual":[15],"ca":13,"cr":"1/2","xp_unidad":100}
+       ]'::jsonb,
+       300,'Media')
+  `);
+
+  console.log("✦ Datos semilla insertados");
+}
+
+async function conectar() {
+  await pool.query("SELECT 1");
+  console.log("🐘 Conectado a PostgreSQL");
+  await crearEsquema();
+  await sembrarDatos();
+}
+
+module.exports = { pool, conectar };
