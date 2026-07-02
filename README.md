@@ -1,107 +1,110 @@
-# ⚔️ D&D Campaign Hub — Backend
+# D&D Campaign Hub — Backend
 
-API REST para gestión de campañas de Dungeons & Dragons 5e.  
-Construida con Node.js + Express. Se comunica con el frontend SPA y puede ser consumida también por la app Android.
-
----
-
-## 🛠️ Tecnologías
-
-| Paquete | Versión | Para qué sirve |
-|---------|---------|----------------|
-| **express** | ^4.18 | Framework HTTP y routing |
-| **lowdb** | 1.0.0 | Base de datos JSON persistente en archivo `db.json` |
-| **jsonwebtoken** | ^9.0 | Generación y validación de JWT |
-| **bcryptjs** | ^2.4 | Hash seguro de contraseñas |
-| **cors** | ^2.8 | Habilitar CORS para el frontend |
-| **dotenv** | ^16.3 | Variables de entorno desde `.env` |
-| **uuid** | ^9.0 | Generación de IDs únicos |
+REST API for managing Dungeons & Dragons 5e campaigns.
+Built with Node.js and Express, backed by PostgreSQL. Consumed by the frontend SPA and, potentially, by an Android client.
 
 ---
 
-## 📁 Estructura de carpetas
+## Technologies
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| express | ^4.22 | HTTP framework and routing |
+| pg | ^8.16 | PostgreSQL client and connection pool |
+| jsonwebtoken | ^9.0 | JWT generation and validation |
+| bcryptjs | ^2.4 | Secure password hashing |
+| cors | ^2.8 | CORS support for the frontend |
+| dotenv | ^16.6 | Environment variables from `.env` |
+
+---
+
+## Folder structure
 
 ```
 backend/
 ├── src/
-│   ├── index.js               ← Entry point: crea la app Express y registra rutas
+│   ├── index.js               Entry point: creates the Express app and registers routes
 │   ├── db/
-│   │   └── database.js        ← Inicializa lowdb y ejecuta el seed de datos
+│   │   └── database.js        PostgreSQL pool, schema creation, and seed data
 │   ├── middleware/
-│   │   └── auth.js            ← Middleware JWT: authMiddleware + dmOnly
+│   │   └── auth.js            JWT middleware: authMiddleware + dmOnly
 │   └── routes/
-│       ├── auth.js            ← /api/auth  (login, register, me)
-│       ├── campaigns.js       ← /api/campaigns
-│       ├── missions.js        ← /api/missions
-│       ├── encounters.js      ← /api/encounters
-│       ├── monsters.js        ← /api/monsters
-│       └── users.js           ← /api/users
-├── db.json                    ← Base de datos (se genera automáticamente)
-├── .env                       ← Variables de entorno
+│       ├── auth.js            /api/auth  (login, register, me)
+│       ├── campaigns.js       /api/campaigns
+│       ├── missions.js        /api/missions
+│       ├── encounters.js      /api/encounters
+│       ├── monsters.js        /api/monsters (proxies Open5e)
+│       └── users.js           /api/users
+├── .env                        Environment variables (not committed)
 └── package.json
 ```
 
 ---
 
-## 🚀 Instalación y arranque
+## Installation and setup
 
-### Requisitos previos
-- Node.js >= 18
-- npm >= 8
+### Requirements
 
-### Pasos
+- Node.js 18 or higher
+- npm 8 or higher
+- A running PostgreSQL instance
+
+### Steps
 
 ```bash
-# 1. Entrar a la carpeta
+# 1. Move into the folder
 cd backend
 
-# 2. Instalar dependencias
+# 2. Install dependencies
 npm install
 
-# 3. (Opcional) Revisar variables de entorno
-cat .env
-# PORT=3001
-# JWT_SECRET=dnd-campaign-hub-secret-key-2024
+# 3. Create a .env file (see Environment variables below)
 
-# 4. Iniciar el servidor
-node src/index.js
+# 4. Start the server
+npm start
+# or, for automatic reload during development:
+npm run dev
 ```
 
-Salida esperada:
+Expected output:
+
 ```
-⚔️  D&D Campaign Hub API corriendo en http://localhost:3001
-📖 Health: http://localhost:3001/api/health
-✦ Database seeded successfully
+Connected to PostgreSQL
+Schema ready
+Seed data inserted
+D&D Campaign Hub API running at http://localhost:3001
+Health check: http://localhost:3001/api/health
 ```
 
-> La primera vez que corre, `database.js` inserta automáticamente usuarios, una campaña, misiones, encuentros y monstruos de ejemplo en `db.json`.
+On first startup, `database.js` creates the required tables if they do not exist and, if the `usuarios` table is empty, inserts a set of demo users, a campaign, missions, and one encounter.
 
 ---
 
-## 🔐 Autenticación
+## Authentication
 
-El sistema usa **JWT (JSON Web Token)**.
+The API uses JWT (JSON Web Token).
 
-### Flujo
-1. El cliente hace POST a `/api/auth/login` con email y contraseña.
-2. La API valida las credenciales con bcrypt y devuelve un token JWT.
-3. Para rutas protegidas, el cliente incluye el token en el header:
+### Flow
+
+1. The client sends a POST request to `/api/auth/login` with email and password.
+2. The API validates the credentials with bcrypt and returns a signed JWT.
+3. For protected routes, the client includes the token in the header:
    ```
    Authorization: Bearer <token>
    ```
-4. El middleware `authMiddleware` verifica el token en cada request.
-5. El middleware `dmOnly` rechaza con 403 si el rol no es `dm`.
+4. The `authMiddleware` verifies the token on every request.
+5. The `dmOnly` middleware rejects the request with 403 if the role is not `dm`.
 
 ### Roles
 
-| Rol | Descripción |
-|-----|-------------|
-| `dm` | Dungeon Master. Acceso total: crear, editar, eliminar todo. |
-| `player` | Jugador. Solo puede leer sus propias misiones y los encuentros de su campaña. |
+| Role | Description |
+|------|--------------|
+| dm | Dungeon Master. Full access: create, edit, and delete all resources. |
+| player | Can only read their own missions and the encounters of their campaign. |
 
 ---
 
-## 🔌 Endpoints
+## Endpoints
 
 Base URL: `http://localhost:3001/api`
 
@@ -110,150 +113,143 @@ Base URL: `http://localhost:3001/api`
 ```
 GET /health
 ```
-Devuelve `{ status: "ok" }`. Sin autenticación. Útil para verificar que el servidor está corriendo.
+
+Returns `{ status, message, timestamp }`. No authentication required.
 
 ---
 
-### Auth — `/api/auth`
+### Auth — /api/auth
 
-| Método | Ruta | Auth | Descripción |
-|--------|------|------|-------------|
-| POST | `/login` | ❌ | Iniciar sesión. Body: `{ email, password }`. Devuelve `{ token, user }`. |
-| POST | `/register` | ❌ | Crear cuenta. Body: `{ username, email, password, role }`. |
-| GET | `/me` | ✅ | Devuelve el usuario autenticado actual. |
-
----
-
-### Campañas — `/api/campaigns`
-
-| Método | Ruta | Rol | Descripción |
-|--------|------|-----|-------------|
-| GET | `/` | Ambos | Lista campañas. DM ve las suyas; Player ve las que integra. |
-| GET | `/:id` | Ambos | Detalle de campaña con lista de jugadores. |
-| POST | `/` | DM | Crear campaña. Body: `{ name, description, image }`. |
-| PUT | `/:id` | DM | Editar campaña. |
-| DELETE | `/:id` | DM | Eliminar campaña y todo su contenido. |
-| POST | `/:id/players` | DM | Agregar jugador. Body: `{ playerId }`. |
-| DELETE | `/:id/players/:playerId` | DM | Remover jugador de la campaña. |
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| POST | /login | No | Sign in. Body: `{ email, password }`. Returns `{ token, user }`. |
+| POST | /register | No | Create an account. Body: `{ username, email, password, role }`. |
+| GET | /me | Yes | Returns the currently authenticated user. |
 
 ---
 
-### Misiones — `/api/missions`
+### Campaigns — /api/campaigns
 
-| Método | Ruta | Rol | Descripción |
-|--------|------|-----|-------------|
-| GET | `/?campaignId=xxx` | Ambos | Lista misiones. Player solo ve las asignadas o disponibles. |
-| GET | `/:id` | Ambos | Detalle de misión. |
-| POST | `/` | DM | Crear misión. Body: `{ campaignId, title, description, reward, difficulty }`. |
-| PUT | `/:id` | DM | Editar misión. |
-| DELETE | `/:id` | DM | Eliminar misión. |
-| POST | `/:id/assign` | DM | Asignar jugador. Body: `{ playerId }`. Cambia estado a `active`. |
-| POST | `/:id/complete` | DM | Marcar misión como completada. |
-
-**Estados de misión:** `available` → `active` → `completed`
-
-**Dificultades:** `easy`, `medium`, `hard`, `deadly`
+| Method | Route | Role | Description |
+|--------|-------|------|-------------|
+| GET | / | Both | Lists campaigns. DM sees their own; Player sees the ones they belong to. |
+| GET | /:id | Both | Campaign detail, including the player list. |
+| POST | / | DM | Create a campaign. Body: `{ nombre, descripcion, imagen }`. |
+| PUT | /:id | DM | Update a campaign. Body: `{ nombre, descripcion, imagen, estado }`. |
+| DELETE | /:id | DM | Delete a campaign and its content. |
+| POST | /:id/players | DM | Add a player. Body: `{ playerId }`. |
+| DELETE | /:id/players/:playerId | DM | Remove a player from the campaign. |
 
 ---
 
-### Encuentros — `/api/encounters`
+### Missions — /api/missions
 
-| Método | Ruta | Rol | Descripción |
-|--------|------|-----|-------------|
-| GET | `/?campaignId=xxx` | Ambos | Lista encuentros. |
-| GET | `/:id` | Ambos | Detalle con orden de iniciativa. |
-| POST | `/` | DM | Crear encuentro. Body: `{ campaignId, name, description, monsters[] }`. |
-| PUT | `/:id` | DM | Editar encuentro. |
-| POST | `/:id/start` | DM | Inicia el combate: tira d20 de iniciativa para cada monstruo y ordena. |
-| PATCH | `/:id/damage` | DM | Aplica daño. Body: `{ monsterId, instanceIndex, damage }`. |
-| POST | `/:id/nextround` | DM | Avanza una ronda. |
-| POST | `/:id/end` | DM | Finaliza el encuentro. |
-| DELETE | `/:id` | DM | Eliminar encuentro. |
+| Method | Route | Role | Description |
+|--------|-------|------|-------------|
+| GET | /?campaignId=xxx | Both | Lists missions. A player only sees available or assigned missions. |
+| GET | /:id | Both | Mission detail. |
+| POST | / | DM | Create a mission. Body: `{ campaignId, title, description, reward, difficulty }`. |
+| PUT | /:id | DM | Update a mission. |
+| DELETE | /:id | DM | Delete a mission. |
+| POST | /:id/assign | DM | Assign a player. Body: `{ playerId }`. Sets status to `active`. |
+| POST | /:id/complete | DM | Mark a mission as completed. |
 
-**Estados de encuentro:** `pending` → `active` → `completed`
+Mission status: `available` -> `active` -> `completed`.
 
----
-
-### Monstruos — `/api/monsters`
-
-| Método | Ruta | Rol | Descripción |
-|--------|------|-----|-------------|
-| GET | `/` | Ambos | Lista todo el catálogo de monstruos. |
-| POST | `/` | DM | Crear monstruo. Body: `{ name, hp, ac, cr, attack, damage, type }`. |
-| DELETE | `/:id` | DM | Eliminar monstruo. |
+Difficulty: `easy`, `medium`, `hard`, `deadly`.
 
 ---
 
-### Usuarios — `/api/users`
+### Encounters — /api/encounters
 
-| Método | Ruta | Rol | Descripción |
-|--------|------|-----|-------------|
-| GET | `/` | Ambos | DM ve todos; Player solo se ve a sí mismo. |
-| GET | `/players` | DM | Lista solo los usuarios con rol `player`. |
-| DELETE | `/:id` | DM | Eliminar usuario y sus asignaciones de campaña. |
+| Method | Route | Role | Description |
+|--------|-------|------|-------------|
+| GET | /?campaignId=xxx | Both | Lists encounters. |
+| GET | /:id | Both | Encounter detail, including initiative order. |
+| POST | / | DM | Create an encounter. Body: `{ campaignId, name, description, monsters[] }`. |
+| PUT | /:id | DM | Update an encounter. |
+| POST | /:id/start | DM | Starts combat: rolls a d20 for each monster instance and sorts by initiative. |
+| PATCH | /:id/damage | DM | Applies damage. Body: `{ monsters, initiativeOrder }`. |
+| POST | /:id/nextround | DM | Advances one round. |
+| POST | /:id/end | DM | Ends the encounter. |
+| DELETE | /:id | DM | Delete the encounter. |
 
----
-
-## 🗃️ Estructura de la base de datos
-
-El archivo `db.json` tiene esta forma:
-
-```json
-{
-  "users": [
-    {
-      "id": "user-dm-1",
-      "username": "dungeon_master",
-      "email": "dm@dndcompanion.com",
-      "password": "$2a$10$...",
-      "role": "dm",
-      "avatar": "🧙"
-    }
-  ],
-  "campaigns": [...],
-  "missions": [...],
-  "encounters": [...],
-  "monsters": [...],
-  "campaign_players": [
-    { "id": "cp-1", "campaignId": "campaign-1", "playerId": "user-player-1" }
-  ]
-}
-```
-
-> **Nota:** `db.json` es la base de datos. No borrarlo entre ejecuciones si querés mantener los datos. Si lo borrás, el seed se ejecuta de nuevo automáticamente al reiniciar.
+Encounter status: `pending` -> `active` -> `completed`.
 
 ---
 
-## 🌱 Datos de ejemplo (seed)
+### Monsters — /api/monsters
 
-Al iniciar por primera vez se crean:
+This route proxies the public [Open5e](https://open5e.com/) API rather than reading from the local database.
 
-**Usuarios**
-- `dm@dndcompanion.com` / `dm123456` → rol `dm`
-- `player@dndcompanion.com` / `player123` → rol `player`
-- `zorathis@dndcompanion.com` / `player123` → rol `player`
-
-**Campaña:** La Maldición de Strahd
-
-**Misiones:** 3 (1 activa, 2 disponibles)
-
-**Encuentros:** 1 pendiente con Goblins y un Orco Líder
-
-**Monstruos:** 8 (Goblin, Esqueleto, Zombi, Lobo, Orco, Ogro, Troll, Vampiro Espectral)
+| Method | Route | Role | Description |
+|--------|-------|------|-------------|
+| GET | /?search=&type=&cr=&page= | Both | Searches the Open5e SRD monster catalog with optional filters. |
+| GET | /:slug | Both | Full stat block for a single monster. |
+| POST | /xp | Both | Calculates total XP and an estimated difficulty for a list of monsters. |
 
 ---
 
-## ⚙️ Variables de entorno
+### Users — /api/users
 
-Archivo `.env` en la raíz del backend:
+| Method | Route | Role | Description |
+|--------|-------|------|-------------|
+| GET | / | Both | DM sees every user; Player sees only themselves. |
+| GET | /players | DM | Lists users with the `player` role. |
+| DELETE | /:id | DM | Deletes a user. A DM cannot delete their own account (enforced server-side). |
+
+---
+
+## Database
+
+The API uses PostgreSQL through the `pg` connection pool. `database.js` is responsible for:
+
+1. Connecting to the database configured in `.env`.
+2. Creating the schema (`usuarios`, `campanas`, `campana_jugadores`, `misiones`, `mision_asignados`, `encuentros`) if it does not already exist.
+3. Seeding demo data the first time the `usuarios` table is empty.
+
+Table and column names are in Spanish; the API layer translates them to the English, camelCase shape consumed by the frontend (with the exception noted below).
+
+---
+
+## Seed data
+
+On first startup, the following are created automatically:
+
+Users:
+- `dm@dndcompanion.com` / `dm123456` (role: dm)
+- `player@dndcompanion.com` / `player123` (role: player)
+- `zorathis@dndcompanion.com` / `player123` (role: player)
+
+Campaign: La Maldicion de Strahd
+
+Missions: three missions (one active, two available)
+
+Encounters: one pending encounter with goblins and an orc leader
+
+---
+
+## Environment variables
+
+Create a `.env` file in the backend root. It is not committed to version control.
 
 ```env
 PORT=3001
-JWT_SECRET=dnd-campaign-hub-secret-key-2024
+JWT_SECRET=replace-with-a-long-random-string
+
+PG_HOST=localhost
+PG_PORT=5432
+PG_USER=your-db-user
+PG_PASSWORD=your-db-password
+PG_DATABASE=dndcampaign
 ```
 
-Podés cambiar `JWT_SECRET` por cualquier string largo y aleatorio en producción.
+Use a long, random value for `JWT_SECRET` in any non-local environment, and never commit real database credentials.
 
 ---
 
-<p align="center"><sub>✦ D&D Campaign Hub · Backend · ACN4AP ✦</sub></p>
+## Known issues
+
+- The `POST` and `PUT` handlers in `routes/campaigns.js` read `nombre`, `descripcion`, and `imagen` from the request body, while the frontend's campaign creation form (`DashboardPage.jsx`) sends `name`, `description`, and `image`. As written, campaign creation and updates from the frontend will fail with "Nombre requerido" or silently store `null` values. Align the field names on either side before relying on this flow.
+- `db.json` is a leftover artifact from an earlier version of this API that used a local JSON datastore (lowdb). The current implementation reads and writes exclusively through PostgreSQL; `db.json` is not read by any route and should not be committed going forward (see `.gitignore`). If it is already tracked in the repository's history, consider removing it, since it contains bcrypt password hashes for the seed accounts.
+- The repository's `.env` file, if already committed, contains a JWT secret and database credentials. Rotate these values and remove the file from git history rather than only relying on `.gitignore` going forward.
