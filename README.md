@@ -1,112 +1,112 @@
 # D&D Campaign Hub — Backend
 
-REST API for managing Dungeons & Dragons 5e campaigns.
-Built with Node.js and Express, backed by PostgreSQL. Consumed by the frontend SPA and, potentially, by an Android client.
+API REST para gestionar campañas de Dungeons & Dragons 5e.
+Hecha con Node.js y Express, con PostgreSQL como base de datos. La consume el frontend SPA y, en algún momento, podría consumirla también un cliente Android.
 
 ---
 
-## Technologies
+## Tecnologías
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| express | ^4.22 | HTTP framework and routing |
-| pg | ^8.16 | PostgreSQL client and connection pool |
-| jsonwebtoken | ^9.0 | JWT generation and validation |
-| bcryptjs | ^2.4 | Secure password hashing |
-| cors | ^2.8 | CORS support for the frontend |
-| dotenv | ^16.6 | Environment variables from `.env` |
+| Paquete | Versión | Para qué se usa |
+|---------|---------|-------------|
+| express | ^4.22 | Framework HTTP y ruteo |
+| pg | ^8.16 | Cliente de PostgreSQL y pool de conexiones |
+| jsonwebtoken | ^9.0 | Generación y validación de JWT |
+| bcryptjs | ^2.4 | Hasheo seguro de contraseñas |
+| cors | ^2.8 | Soporte CORS para el frontend |
+| dotenv | ^16.6 | Variables de entorno desde `.env` |
 
 ---
 
-## Folder structure
+## Estructura de carpetas
 
 ```
 backend/
 ├── src/
-│   ├── index.js               Entry point: creates the Express app and registers routes
+│   ├── index.js               Punto de entrada: crea la app de Express y registra las rutas
 │   ├── db/
-│   │   └── database.js        PostgreSQL pool, schema creation, and seed data
+│   │   └── database.js        Pool de PostgreSQL, creación del esquema y datos semilla
 │   ├── middleware/
-│   │   └── auth.js            JWT middleware: authMiddleware + dmOnly
+│   │   └── auth.js            Middleware de JWT: authMiddleware + dmOnly
 │   └── routes/
-│       ├── auth.js            /api/auth  (login, register, me)
+│       ├── auth.js            /api/auth  (login, registro, me)
 │       ├── campaigns.js       /api/campaigns
 │       ├── missions.js        /api/missions
 │       ├── encounters.js      /api/encounters
-│       ├── monsters.js        /api/monsters (proxies Open5e)
+│       ├── monsters.js        /api/monsters (proxy a Open5e)
 │       └── users.js           /api/users
-├── .env                        Environment variables (not committed)
+├── .env                        Variables de entorno (no se commitea)
 └── package.json
 ```
 
 ---
 
-## Installation and setup
+## Instalación
 
-### Requirements
+### Requisitos
 
-- Node.js 18 or higher
-- npm 8 or higher
-- A running PostgreSQL instance
+- Node.js 18 o superior
+- npm 8 o superior
+- Una instancia de PostgreSQL corriendo
 
-### Steps
+### Pasos
 
 ```bash
-# 1. Move into the folder
+# 1. Entrar a la carpeta
 cd backend
 
-# 2. Install dependencies
+# 2. Instalar dependencias
 npm install
 
-# 3. Create a .env file (see Environment variables below)
+# 3. Crear un archivo .env (ver Variables de entorno más abajo)
 
-# 4. Start the server
+# 4. Levantar el servidor
 npm start
-# or, for automatic reload during development:
+# o, para recarga automática durante el desarrollo:
 npm run dev
 ```
 
-Expected output:
+Salida esperada:
 
 ```
-Connected to PostgreSQL
-Schema ready
-Seed data inserted
-D&D Campaign Hub API running at http://localhost:3001
+Conectado a PostgreSQL
+Esquema listo
+Datos semilla insertados
+D&D Campaign Hub API corriendo en http://localhost:3001
 Health check: http://localhost:3001/api/health
 ```
 
-On first startup, `database.js` creates the required tables if they do not exist and, if the `usuarios` table is empty, inserts a set of demo users, a campaign, missions, and one encounter.
+En el primer arranque, `database.js` crea las tablas que hagan falta y, si la tabla `usuarios` está vacía, carga usuarios de prueba, una campaña, misiones y un encuentro.
 
 ---
 
-## Authentication
+## Autenticación
 
-The API uses JWT (JSON Web Token).
+La API usa JWT (JSON Web Token).
 
-### Flow
+### Flujo
 
-1. The client sends a POST request to `/api/auth/login` with email and password.
-2. The API validates the credentials with bcrypt and returns a signed JWT.
-3. For protected routes, the client includes the token in the header:
+1. El cliente manda un POST a `/api/auth/login` con email y contraseña.
+2. La API valida las credenciales con bcrypt y devuelve un JWT firmado.
+3. En las rutas protegidas, el cliente manda el token en el header:
    ```
    Authorization: Bearer <token>
    ```
-4. The `authMiddleware` verifies the token on every request.
-5. The `dmOnly` middleware rejects the request with 403 if the role is not `dm`.
+4. `authMiddleware` verifica el token en cada request.
+5. `dmOnly` rechaza el request con 403 si el rol no es `dm`.
 
 ### Roles
 
-| Role | Description |
+| Rol | Descripción |
 |------|--------------|
-| dm | Dungeon Master. Full access: create, edit, and delete all resources. |
-| player | Can only read their own missions and the encounters of their campaign. |
+| dm | Dungeon Master. Acceso total: crea, edita y borra todos los recursos. |
+| player | Solo puede leer sus propias misiones y los encuentros de su campaña. |
 
 ---
 
 ## Endpoints
 
-Base URL: `http://localhost:3001/api`
+URL base: `http://localhost:3001/api`
 
 ### Health
 
@@ -114,142 +114,142 @@ Base URL: `http://localhost:3001/api`
 GET /health
 ```
 
-Returns `{ status, message, timestamp }`. No authentication required.
+Devuelve `{ status, message, timestamp }`. No requiere autenticación.
 
 ---
 
 ### Auth — /api/auth
 
-| Method | Route | Auth | Description |
+| Método | Ruta | Auth | Descripción |
 |--------|-------|------|-------------|
-| POST | /login | No | Sign in. Body: `{ email, password }`. Returns `{ token, user }`. |
-| POST | /register | No | Create an account. Body: `{ username, email, password, role }`. |
-| GET | /me | Yes | Returns the currently authenticated user. |
+| POST | /login | No | Inicia sesión. Body: `{ email, password }`. Devuelve `{ token, user }`. |
+| POST | /register | No | Crea una cuenta. Body: `{ username, email, password, role }`. |
+| GET | /me | Sí | Devuelve el usuario autenticado. |
 
 ---
 
-### Campaigns — /api/campaigns
+### Campañas — /api/campaigns
 
-| Method | Route | Role | Description |
+| Método | Ruta | Rol | Descripción |
 |--------|-------|------|-------------|
-| GET | / | Both | Lists campaigns. DM sees their own; Player sees the ones they belong to. |
-| GET | /:id | Both | Campaign detail, including the player list. |
-| POST | / | DM | Create a campaign. Body: `{ nombre, descripcion, imagen }`. |
-| PUT | /:id | DM | Update a campaign. Body: `{ nombre, descripcion, imagen, estado }`. |
-| DELETE | /:id | DM | Delete a campaign and its content. |
-| POST | /:id/players | DM | Add a player. Body: `{ playerId }`. |
-| DELETE | /:id/players/:playerId | DM | Remove a player from the campaign. |
+| GET | / | Ambos | Lista campañas. El DM ve las suyas; el jugador ve aquellas a las que pertenece. |
+| GET | /:id | Ambos | Detalle de la campaña, incluye la lista de jugadores. |
+| POST | / | DM | Crea una campaña. Body: `{ nombre, descripcion, imagen }`. |
+| PUT | /:id | DM | Actualiza una campaña. Body: `{ nombre, descripcion, imagen, estado }`. |
+| DELETE | /:id | DM | Borra una campaña y todo su contenido. |
+| POST | /:id/players | DM | Agrega un jugador. Body: `{ playerId }`. |
+| DELETE | /:id/players/:playerId | DM | Saca a un jugador de la campaña. |
 
 ---
 
-### Missions — /api/missions
+### Misiones — /api/missions
 
-| Method | Route | Role | Description |
+| Método | Ruta | Rol | Descripción |
 |--------|-------|------|-------------|
-| GET | /?campaignId=xxx | Both | Lists missions. A player only sees available or assigned missions. |
-| GET | /:id | Both | Mission detail. |
-| POST | / | DM | Create a mission. Body: `{ campaignId, title, description, reward, difficulty }`. |
-| PUT | /:id | DM | Update a mission. |
-| DELETE | /:id | DM | Delete a mission. |
-| POST | /:id/assign | DM | Assign a player. Body: `{ playerId }`. Sets status to `active`. |
-| POST | /:id/complete | DM | Mark a mission as completed. |
+| GET | /?campaignId=xxx | Ambos | Lista misiones. Un jugador solo ve las disponibles o las que tiene asignadas. |
+| GET | /:id | Ambos | Detalle de la misión. |
+| POST | / | DM | Crea una misión. Body: `{ campaignId, title, description, reward, difficulty }`. |
+| PUT | /:id | DM | Actualiza una misión. |
+| DELETE | /:id | DM | Borra una misión. |
+| POST | /:id/assign | DM | Asigna un jugador. Body: `{ playerId }`. Pasa el estado a `active`. |
+| POST | /:id/complete | DM | Marca la misión como completada. |
 
-Mission status: `available` -> `active` -> `completed`.
+Estados de misión: `available` -> `active` -> `completed`.
 
-Difficulty: `easy`, `medium`, `hard`, `deadly`.
+Dificultad: `easy`, `medium`, `hard`, `deadly`.
 
 ---
 
-### Encounters — /api/encounters
+### Encuentros — /api/encounters
 
-| Method | Route | Role | Description |
+| Método | Ruta | Rol | Descripción |
 |--------|-------|------|-------------|
-| GET | /?campaignId=xxx | Both | Lists encounters. |
-| GET | /:id | Both | Encounter detail, including initiative order. |
-| POST | / | DM | Create an encounter. Body: `{ campaignId, name, description, monsters[] }`. |
-| PUT | /:id | DM | Update an encounter. |
-| POST | /:id/start | DM | Starts combat: rolls a d20 for each monster instance and sorts by initiative. |
-| PATCH | /:id/damage | DM | Applies damage. Body: `{ monsters, initiativeOrder }`. |
-| POST | /:id/nextround | DM | Advances one round. |
-| POST | /:id/end | DM | Ends the encounter. |
-| DELETE | /:id | DM | Delete the encounter. |
+| GET | /?campaignId=xxx | Ambos | Lista encuentros. |
+| GET | /:id | Ambos | Detalle del encuentro, incluye el orden de iniciativa. |
+| POST | / | DM | Crea un encuentro. Body: `{ campaignId, name, description, monsters[] }`. |
+| PUT | /:id | DM | Actualiza un encuentro. |
+| POST | /:id/start | DM | Arranca el combate: tira un d20 por cada instancia de monstruo y ordena por iniciativa. |
+| PATCH | /:id/damage | DM | Aplica daño. Body: `{ monsters, initiativeOrder }`. |
+| POST | /:id/nextround | DM | Avanza una ronda. |
+| POST | /:id/end | DM | Termina el encuentro. |
+| DELETE | /:id | DM | Borra el encuentro. |
 
-Encounter status: `pending` -> `active` -> `completed`.
+Estados de encuentro: `pending` -> `active` -> `completed`.
 
 ---
 
-### Monsters — /api/monsters
+### Monstruos — /api/monsters
 
-This route proxies the public [Open5e](https://open5e.com/) API rather than reading from the local database.
+Esta ruta hace de proxy hacia la API pública de [Open5e](https://open5e.com/); no lee de la base de datos local.
 
-| Method | Route | Role | Description |
+| Método | Ruta | Rol | Descripción |
 |--------|-------|------|-------------|
-| GET | /?search=&type=&cr=&page= | Both | Searches the Open5e SRD monster catalog with optional filters. |
-| GET | /:slug | Both | Full stat block for a single monster. |
-| POST | /xp | Both | Calculates total XP and an estimated difficulty for a list of monsters. |
+| GET | /?search=&type=&cr=&page= | Ambos | Busca en el catálogo SRD de monstruos de Open5e, con filtros opcionales. |
+| GET | /:slug | Ambos | Ficha completa de un monstruo. |
+| POST | /xp | Ambos | Calcula el XP total y una dificultad estimada para una lista de monstruos. |
 
 ---
 
-### Users — /api/users
+### Usuarios — /api/users
 
-| Method | Route | Role | Description |
+| Método | Ruta | Rol | Descripción |
 |--------|-------|------|-------------|
-| GET | / | Both | DM sees every user; Player sees only themselves. |
-| GET | /players | DM | Lists users with the `player` role. |
-| DELETE | /:id | DM | Deletes a user. A DM cannot delete their own account (enforced server-side). |
+| GET | / | Ambos | El DM ve a todos los usuarios; el jugador se ve solo a sí mismo. |
+| GET | /players | DM | Lista los usuarios con rol `player`. |
+| DELETE | /:id | DM | Borra un usuario. Un DM no puede borrarse a sí mismo (esto se valida en el backend). |
 
 ---
 
-## Database
+## Base de datos
 
-The API uses PostgreSQL through the `pg` connection pool. `database.js` is responsible for:
+La API usa PostgreSQL a través del pool de conexiones de `pg`. `database.js` se encarga de:
 
-1. Connecting to the database configured in `.env`.
-2. Creating the schema (`usuarios`, `campanas`, `campana_jugadores`, `misiones`, `mision_asignados`, `encuentros`) if it does not already exist.
-3. Seeding demo data the first time the `usuarios` table is empty.
+1. Conectarse a la base configurada en `.env`.
+2. Crear el esquema (`usuarios`, `campanas`, `campana_jugadores`, `misiones`, `mision_asignados`, `encuentros`) si todavía no existe.
+3. Cargar datos de prueba la primera vez que la tabla `usuarios` está vacía.
 
-Table and column names are in Spanish; the API layer translates them to the English, camelCase shape consumed by the frontend (with the exception noted below).
-
----
-
-## Seed data
-
-On first startup, the following are created automatically:
-
-Users:
-- `dm@dndcompanion.com` / `dm123456` (role: dm)
-- `player@dndcompanion.com` / `player123` (role: player)
-- `zorathis@dndcompanion.com` / `player123` (role: player)
-
-Campaign: La Maldicion de Strahd
-
-Missions: three missions (one active, two available)
-
-Encounters: one pending encounter with goblins and an orc leader
+Los nombres de tablas y columnas están en español; la capa de la API los traduce al formato en inglés y camelCase que consume el frontend (con la excepción que se aclara más abajo).
 
 ---
 
-## Environment variables
+## Datos semilla
 
-Create a `.env` file in the backend root. It is not committed to version control.
+En el primer arranque se crean automáticamente:
+
+Usuarios:
+- `dm@dndcompanion.com` / `dm123456` (rol: dm)
+- `player@dndcompanion.com` / `player123` (rol: player)
+- `zorathis@dndcompanion.com` / `player123` (rol: player)
+
+Campaña: La Maldición de Strahd
+
+Misiones: tres misiones (una en curso, dos disponibles)
+
+Encuentros: un encuentro pendiente con goblins y un orco líder
+
+---
+
+## Variables de entorno
+
+Crear un archivo `.env` en la raíz del backend. No se sube al repositorio.
 
 ```env
 PORT=3001
-JWT_SECRET=replace-with-a-long-random-string
+JWT_SECRET=reemplazar-por-un-string-largo-y-random
 
 PG_HOST=localhost
 PG_PORT=5432
-PG_USER=your-db-user
-PG_PASSWORD=your-db-password
+PG_USER=tu-usuario-de-db
+PG_PASSWORD=tu-password-de-db
 PG_DATABASE=dndcampaign
 ```
 
-Use a long, random value for `JWT_SECRET` in any non-local environment, and never commit real database credentials.
+Usar un valor largo y random para `JWT_SECRET` en cualquier entorno que no sea local, y nunca commitear credenciales reales de base de datos.
 
 ---
 
-## Known issues
+## Problemas conocidos
 
-- The `POST` and `PUT` handlers in `routes/campaigns.js` read `nombre`, `descripcion`, and `imagen` from the request body, while the frontend's campaign creation form (`DashboardPage.jsx`) sends `name`, `description`, and `image`. As written, campaign creation and updates from the frontend will fail with "Nombre requerido" or silently store `null` values. Align the field names on either side before relying on this flow.
-- `db.json` is a leftover artifact from an earlier version of this API that used a local JSON datastore (lowdb). The current implementation reads and writes exclusively through PostgreSQL; `db.json` is not read by any route and should not be committed going forward (see `.gitignore`). If it is already tracked in the repository's history, consider removing it, since it contains bcrypt password hashes for the seed accounts.
-- The repository's `.env` file, if already committed, contains a JWT secret and database credentials. Rotate these values and remove the file from git history rather than only relying on `.gitignore` going forward.
+- Los handlers `POST` y `PUT` de `routes/campaigns.js` leen `nombre`, `descripcion` e `imagen` del body, mientras que el formulario de creación de campañas del frontend (`DashboardPage.jsx`) manda `name`, `description` e `image`. Tal como está, crear o editar una campaña desde el frontend falla con "Nombre requerido" o guarda `null` en silencio. Hay que alinear los nombres de los campos de un lado o del otro antes de confiar en ese flujo.
+- `db.json` es un resto de una versión anterior de esta API que usaba un datastore local en JSON (lowdb). La implementación actual lee y escribe únicamente a través de PostgreSQL; ninguna ruta lee `db.json` y no debería volver a commitearse (ver `.gitignore`). Si ya quedó en el historial del repo, conviene sacarlo, porque contiene los hashes bcrypt de las cuentas semilla.
+- Si el `.env` del repo ya se llegó a commitear en algún momento, contiene el secreto del JWT y las credenciales de la base. Conviene rotar esos valores y sacar el archivo del historial de git, no alcanza con solo agregarlo al `.gitignore` de ahora en más.
