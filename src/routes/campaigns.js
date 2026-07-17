@@ -2,6 +2,20 @@ const express = require("express");
 const router = express.Router();
 const { pool } = require("../db/database");
 const { authMiddleware, dmOnly } = require("../middleware/auth");
+function mapCampaign(c) {
+  return {
+    id: c.id,
+    name: c.nombre,
+    description: c.descripcion,
+    dmId: c.dm_id,
+    status: c.estado,
+    image: c.imagen,
+    createdAt: c.creado_en,
+    ...(c.playerCount !== undefined && { playerCount: c.playerCount }),
+    ...(c.missionCount !== undefined && { missionCount: c.missionCount }),
+    ...(c.players !== undefined && { players: c.players }),
+  };
+}
 
 async function enriquecer(campanas) {
   return Promise.all(
@@ -20,7 +34,11 @@ async function enriquecer(campanas) {
         ),
         pool.query("SELECT COUNT(*) FROM misiones WHERE campana_id=$1", [c.id]),
       ]);
-      return { ...c, playerCount: +players, missionCount: +missions };
+      return mapCampaign({
+        ...c,
+        playerCount: +players,
+        missionCount: +missions,
+      });
     }),
   );
 }
@@ -67,33 +85,61 @@ router.get("/:id", authMiddleware, async (req, res) => {
      WHERE cj.campana_id=$1`,
     [req.params.id],
   );
-  res.json({ ...rows[0], players });
+  res.json(mapCampaign({ ...rows[0], players }));
 });
 
 // POST /api/campaigns
+// Acepta tanto nombres en español (nombre/descripcion/imagen) como los que
+// manda el frontend en inglés (name/description/image), para no depender
+// de que ambos lados usen la misma convención.
 router.post("/", authMiddleware, dmOnly, async (req, res) => {
-  const { nombre, descripcion, imagen } = req.body;
-  if (!nombre) return res.status(400).json({ error: "Nombre requerido" });
+  const { nombre, name, descripcion, description, imagen, image } = req.body;
+  const campNombre = nombre || name;
+  const campDescripcion = descripcion || description || "";
+  const campImagen = imagen || image || "🗺️";
 
-  const id = "campaign-" + Date.now();
+  if (!campNombre) return res.status(400).json({ error: "Nombre requerido" });
+
+  const newId = "campaign-" + Date.now();
   const { rows } = await pool.query(
     "INSERT INTO campanas (id,nombre,descripcion,dm_id,imagen) VALUES ($1,$2,$3,$4,$5) RETURNING *",
-    [id, nombre, descripcion || "", req.user.id, imagen || "🗺️"],
+    [newId, campNombre, campDescripcion, req.user.id, campImagen],
   );
-  res.status(201).json(rows[0]);
+  res.status(201).json(mapCampaign(rows[0]));
 });
 
 // PUT /api/campaigns/:id
 router.put("/:id", authMiddleware, dmOnly, async (req, res) => {
-  const { nombre, descripcion, imagen, estado } = req.body;
+  const {
+    nombre,
+    name,
+    descripcion,
+    description,
+    imagen,
+    image,
+    estado,
+    status,
+  } = req.body;
+  const campNombre = nombre || name;
+  const campDescripcion = descripcion || description;
+  const campImagen = imagen || image;
+  const campEstado = estado || status;
+
   const { rows } = await pool.query(
     `UPDATE campanas SET nombre=$1,descripcion=$2,imagen=$3,estado=$4
      WHERE id=$5 AND dm_id=$6 RETURNING *`,
-    [nombre, descripcion, imagen, estado, req.params.id, req.user.id],
+    [
+      campNombre,
+      campDescripcion,
+      campImagen,
+      campEstado,
+      req.params.id,
+      req.user.id,
+    ],
   );
   if (!rows.length)
     return res.status(404).json({ error: "Campaña no encontrada" });
-  res.json(rows[0]);
+  res.json(mapCampaign(rows[0]));
 });
 
 // DELETE /api/campaigns/:id
