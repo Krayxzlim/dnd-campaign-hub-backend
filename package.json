@@ -10,7 +10,9 @@
     "db:validate": "prisma validate",
     "db:deploy": "prisma migrate deploy",
     "test": "node --test test/*.test.js",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "setup": "node scripts/setup-env.js",
+    "db:baseline": "prisma migrate resolve --applied 20260924225329_supabase_prisma"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",

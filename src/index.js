@@ -1,14 +1,8 @@
-require("dotenv").config();
+const { loadConfig } = require("./config");
 const { createClient } = require("@supabase/supabase-js");
 const { createApp } = require("./app");
 async function start() {
-  for (const name of [
-    "DATABASE_URL",
-    "SUPABASE_URL",
-    "SUPABASE_PUBLISHABLE_KEY",
-  ]) {
-    if (!process.env[name]) throw new Error(`Falta configurar ${name}`);
-  }
+  loadConfig();
   const { prisma } = require("./db/database");
   const supabase = createClient(
     process.env.SUPABASE_URL,

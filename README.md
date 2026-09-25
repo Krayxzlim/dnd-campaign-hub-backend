@@ -16,14 +16,26 @@ API Express compartida por React y DNDcompanion (Android). Supabase Auth adminis
 
 Requisitos: Node 22+, un proyecto Supabase activo con email/password habilitado y conexión PostgreSQL.
 
-1. Copiar `.env.example` a `.env` y completar las variables. `DATABASE_URL` y `DIRECT_URL` son privadas del servidor. Obtener las conexiones desde **Connect** en Supabase; el Session pooler (5432) sirve en entornos IPv4. Escapar la contraseña como componente de URL.
-2. Instalar y generar el cliente:
+La URL y clave pública de `Krayxzlim's Project` ya están en `config/supabase.public.json`, igual que en web y Android. Para cambiar de proyecto, sobrescribir juntas `SUPABASE_URL` y `SUPABASE_PUBLISHABLE_KEY`.
+
+1. Instalar y configurar la conexión privada:
+   ```sh
+   npm ci
+   npm run setup
+   ```
+   Pegar la URI de **Supabase > Connect > Session pooler (5432)** con la contraseña real, codificada como componente de URL. El asistente guarda `.env`, excluido de Git, y completa `DATABASE_URL`, `DIRECT_URL` y el esquema `app`. No pegar esta conexión en React ni Android. La contraseña PostgreSQL no es la clave publishable y no se puede recuperar mediante el conector usado para preparar el proyecto.
+2. Validar y generar el cliente:
    ```sh
    npm ci
    npm run db:validate
    npm run db:generate
    ```
-3. Aplicar la migración nueva:
+3. **Este proyecto ya fue preparado el 25/09/2026** con el SQL exacto de `20260924225329_supabase_prisma`. En esa base, registrar una sola vez la migración aplicada:
+   ```sh
+   npm run db:baseline
+   npm run db:deploy
+   ```
+   `db:baseline` no crea tablas: registra en Prisma la migración ya ejecutada. No usarlo sobre una base vacía o distinta. Para un proyecto nuevo, omitir baseline y aplicar la migración:
    ```sh
    npm run db:deploy
    ```
