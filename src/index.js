@@ -1,74 +1,48 @@
 require("dotenv").config();
-
-const express = require("express");
-const cors = require("cors");
-
-const { conectar } = require("./db/database");
-
-const authRoutes = require("./routes/auth");
-const campaignRoutes = require("./routes/campaigns");
-const missionRoutes = require("./routes/missions");
-const encounterRoutes = require("./routes/encounters");
-const monsterRoutes = require("./routes/monsters");
-const userRoutes = require("./routes/users");
-
-const app = express();
-const PORT = process.env.PORT || 3001;
-
-app.use(cors({ origin: "*" }));
-app.use(express.json());
-
-// Health check
-app.get("/api/health", (req, res) => {
-  res.json({
-    status: "ok",
-    message: "⚔️ D&D Campaign Hub API running",
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// Rutas
-app.use("/api/auth", authRoutes);
-app.use("/api/campaigns", campaignRoutes);
-app.use("/api/missions", missionRoutes);
-app.use("/api/encounters", encounterRoutes);
-app.use("/api/monsters", monsterRoutes);
-app.use("/api/users", userRoutes);
-
-// 404
-app.use((req, res) => {
-  res.status(404).json({
-    error: "Endpoint no encontrado",
-  });
-});
-
-// Error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-
-  res.status(500).json({
-    error: "Error interno del servidor",
-  });
-});
-
-// Iniciar servidor
-async function iniciarServidor() {
-  try {
-    await conectar();
-
-    app.listen(PORT, () => {
-      console.log(
-        `⚔️ D&D Campaign Hub API corriendo en http://localhost:${PORT}`,
-      );
-      console.log(`📖 Health: http://localhost:${PORT}/api/health`);
-    });
-  } catch (err) {
-    console.error("❌ Error al conectar con PostgreSQL");
-    console.error(err);
-    process.exit(1);
+const { createClient } = require("@supabase/supabase-js");
+const { createApp } = require("./app");
+async function start() {
+  for (const name of [
+    "DATABASE_URL",
+    "SUPABASE_URL",
+    "SUPABASE_PUBLISHABLE_KEY",
+  ]) {
+    if (!process.env[name]) throw new Error(`Falta configurar ${name}`);
   }
+  const { prisma } = require("./db/database");
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_PUBLISHABLE_KEY,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    },
+  );
+  await prisma.$connect();
+  const app = createApp({
+    db: prisma,
+    supabase,
+    origins: (process.env.CORS_ORIGINS || "http://localhost:5173")
+      .split(",")
+      .map((s) => s.trim()),
+  });
+  const server = app.listen(Number(process.env.PORT || 3001), () =>
+    console.log("D&D API lista"),
+  );
+  const stop = () =>
+    server.close(async () => {
+      await prisma.$disconnect();
+      process.exit(0);
+    });
+  process.on("SIGTERM", stop);
+  process.on("SIGINT", stop);
 }
-
-iniciarServidor();
-
-module.exports = app;
+if (require.main === module)
+  start().catch((error) => {
+    console.error("No se pudo iniciar:", error.message);
+    process.exit(1);
+  });
+module.exports = { start };

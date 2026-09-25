@@ -1,7 +1,6 @@
 const express = require("express");
-const router = express.Router();
+
 const https = require("https");
-const { authMiddleware } = require("../middleware/auth");
 
 const OPEN5E_BASE = "https://api.open5e.com/v1";
 
@@ -93,59 +92,62 @@ function normalizar(m) {
   };
 }
 
-// GET /api/monsters?search=&cr=&type=&page=1
-router.get("/", authMiddleware, async (req, res) => {
-  const { search = "", cr, type, page = 1 } = req.query;
+module.exports = ({ auth: authMiddleware }) => {
+  const router = express.Router();
+  // GET /api/monsters?search=&cr=&type=&page=1
+  router.get("/", authMiddleware, async (req, res) => {
+    const { search = "", cr, type, page = 1 } = req.query;
 
-  let qs = `?limit=50&page=${page}&document__slug=wotc-srd`;
-  if (search) qs += `&name__icontains=${encodeURIComponent(search)}`;
-  if (cr) qs += `&challenge_rating=${encodeURIComponent(cr)}`;
-  if (type) qs += `&type__iexact=${encodeURIComponent(type)}`;
+    let qs = `?limit=50&page=${page}&document__slug=wotc-srd`;
+    if (search) qs += `&name__icontains=${encodeURIComponent(search)}`;
+    if (cr) qs += `&challenge_rating=${encodeURIComponent(cr)}`;
+    if (type) qs += `&type__iexact=${encodeURIComponent(type)}`;
 
-  try {
-    const data = await fetchOpen5e(`/monsters/${qs}`);
-    res.json({
-      count: data.count,
-      next: !!data.next,
-      previous: !!data.previous,
-      page: +page,
-      results: (data.results || []).map(normalizar),
-    });
-  } catch (e) {
-    res
-      .status(502)
-      .json({ error: "No se pudo conectar con Open5e", detail: e.message });
-  }
-});
-
-// GET /api/monsters/:slug — detalle completo
-router.get("/:slug", authMiddleware, async (req, res) => {
-  try {
-    const data = await fetchOpen5e(`/monsters/${req.params.slug}/`);
-    res.json(normalizar(data));
-  } catch (e) {
-    res.status(404).json({ error: "Monstruo no encontrado en Open5e" });
-  }
-});
-
-// POST /api/monsters/xp — calcula XP total y dificultad estimada para una lista de monstruos
-// Body: { monstruos: [{cr, cantidad}] }
-router.post("/xp", authMiddleware, (req, res) => {
-  const { monstruos = [] } = req.body;
-
-  let xpTotal = 0;
-  monstruos.forEach(({ cr, cantidad = 1, xp_unidad }) => {
-    const xpUnit = xp_unidad ?? XP_POR_CR[String(cr)] ?? 0;
-    xpTotal += xpUnit * cantidad;
+    try {
+      const data = await fetchOpen5e(`/monsters/${qs}`);
+      res.json({
+        count: data.count,
+        next: !!data.next,
+        previous: !!data.previous,
+        page: +page,
+        results: (data.results || []).map(normalizar),
+      });
+    } catch (e) {
+      res
+        .status(502)
+        .json({ error: "No se pudo conectar con Open5e", detail: e.message });
+    }
   });
 
-  let dificultad = "Trivial";
-  if (xpTotal >= 1100) dificultad = "Fácil";
-  if (xpTotal >= 2250) dificultad = "Media";
-  if (xpTotal >= 3600) dificultad = "Difícil";
-  if (xpTotal >= 5100) dificultad = "Mortal";
+  // GET /api/monsters/:slug — detalle completo
+  router.get("/:slug", authMiddleware, async (req, res) => {
+    try {
+      const data = await fetchOpen5e(`/monsters/${req.params.slug}/`);
+      res.json(normalizar(data));
+    } catch (e) {
+      res.status(404).json({ error: "Monstruo no encontrado en Open5e" });
+    }
+  });
 
-  res.json({ xp_total: xpTotal, dificultad });
-});
+  // POST /api/monsters/xp — calcula XP total y dificultad estimada para una lista de monstruos
+  // Body: { monstruos: [{cr, cantidad}] }
+  router.post("/xp", authMiddleware, (req, res) => {
+    const { monstruos = [] } = req.body;
 
-module.exports = router;
+    let xpTotal = 0;
+    monstruos.forEach(({ cr, cantidad = 1, xp_unidad }) => {
+      const xpUnit = xp_unidad ?? XP_POR_CR[String(cr)] ?? 0;
+      xpTotal += xpUnit * cantidad;
+    });
+
+    let dificultad = "Trivial";
+    if (xpTotal >= 1100) dificultad = "Fácil";
+    if (xpTotal >= 2250) dificultad = "Media";
+    if (xpTotal >= 3600) dificultad = "Difícil";
+    if (xpTotal >= 5100) dificultad = "Mortal";
+
+    res.json({ xp_total: xpTotal, dificultad });
+  });
+
+  return router;
+};

@@ -1,66 +1,51 @@
-const express = require("express");
-const router = express.Router();
-const { pool } = require("../db/database");
-const { authMiddleware, dmOnly } = require("../middleware/auth");
-
-// GET /api/users
-router.get("/", authMiddleware, async (req, res) => {
-  try {
-    if (req.user.role === "dm") {
-      const { rows } = await pool.query(
-        "SELECT id, username, email, role, avatar, creado_en FROM usuarios ORDER BY username",
+const { Router } = require("express");
+const { z } = require("zod");
+const { route, visibleCampaign } = require("../lib/http");
+const select = { id: true, username: true, avatar: true };
+module.exports = ({ db, auth }) => {
+  const router = Router();
+  router.use(auth);
+  router.get(
+    "/",
+    route(async (req, res) => {
+      // Only oneself and people in shared campaigns; never expose the global account directory.
+      res.json(
+        await db.user.findMany({
+          where: {
+            OR: [
+              { id: req.user.id },
+              {
+                memberships: {
+                  some: { campaign: visibleCampaign(req.user.id) },
+                },
+              },
+              {
+                campaigns: {
+                  some: { players: { some: { playerId: req.user.id } } },
+                },
+              },
+            ],
+          },
+          select,
+          orderBy: { username: "asc" },
+        }),
       );
-
-      return res.json(rows);
-    }
-
-    const { rows } = await pool.query(
-      "SELECT id, username, email, role, avatar, creado_en FROM usuarios WHERE id=$1",
-      [req.user.id],
-    );
-
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error interno del servidor" });
-  }
-});
-
-// GET /api/users/players
-router.get("/players", authMiddleware, dmOnly, async (req, res) => {
-  try {
-    const { rows } = await pool.query(
-      "SELECT id, username, email, role, avatar FROM usuarios WHERE role='player' ORDER BY username",
-    );
-
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error interno del servidor" });
-  }
-});
-
-// DELETE /api/users/:id
-router.delete("/:id", authMiddleware, dmOnly, async (req, res) => {
-  try {
-    if (req.params.id === req.user.id) {
-      return res.status(400).json({ error: "No puedes eliminarte a ti mismo" });
-    }
-
-    const result = await pool.query(
-      "DELETE FROM usuarios WHERE id=$1 RETURNING id",
-      [req.params.id],
-    );
-
-    if (!result.rowCount) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
-
-    res.json({ message: "Usuario eliminado" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error interno del servidor" });
-  }
-});
-
-module.exports = router;
+    }),
+  );
+  router.get(
+    "/players",
+    route(async (req, res) => {
+      const email = z
+        .string()
+        .email()
+        .max(254)
+        .parse(req.query.email)
+        .toLowerCase();
+      // Exact email lookup supports adding known players, without publishing emails or roles.
+      const player = await db.user.findUnique({ where: { email }, select });
+      res.json(player && player.id !== req.user.id ? [player] : []);
+    }),
+  );
+  // A DM can remove campaign membership, never delete another Supabase identity.
+  return router;
+};

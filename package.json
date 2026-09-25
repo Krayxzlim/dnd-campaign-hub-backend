@@ -6,14 +6,27 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "seed": "node src/db/seed.js"
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:deploy": "prisma migrate deploy",
+    "test": "node --test test/*.test.js",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
+    "@prisma/client": "6.19.3",
+    "@supabase/supabase-js": "2.117.1",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.22.2",
-    "jsonwebtoken": "^9.0.2",
-    "pg": "^8.16.3"
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-socket": "0.2.11",
+    "nodemon": "3.1.10",
+    "prisma": "6.19.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }

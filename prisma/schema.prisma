@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["app"]
+}
+
+model User {
+  // Supabase Auth UUID. The FK to auth.users is added by migration SQL.
+  id          String              @id @db.Uuid
+  username    String              @db.VarChar(80)
+  email       String              @unique
+  avatar      String              @default("⚔️")
+  createdAt   DateTime            @default(now()) @map("creado_en") @db.Timestamptz(3)
+  campaigns   Campaign[]
+  memberships CampaignPlayer[]
+  assignments MissionAssignment[]
+  characters  Character[]
+
+  @@map("usuarios")
+  @@schema("app")
+}
+
+model Campaign {
+  id          String           @id @default(uuid()) @db.Uuid
+  name        String           @map("nombre") @db.VarChar(160)
+  description String           @default("") @map("descripcion")
+  dmId        String           @map("dm_id") @db.Uuid
+  status      String           @default("active") @map("estado")
+  image       String           @default("🗺️") @map("imagen")
+  createdAt   DateTime         @default(now()) @map("creado_en") @db.Timestamptz(3)
+  dm          User             @relation(fields: [dmId], references: [id], onDelete: Cascade)
+  players     CampaignPlayer[]
+  missions    Mission[]
+  encounters  Encounter[]
+  characters  Character[]
+
+  @@index([dmId])
+  @@map("campanas")
+  @@schema("app")
+}
+
+model CampaignPlayer {
+  campaignId String   @map("campana_id") @db.Uuid
+  playerId   String   @map("jugador_id") @db.Uuid
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  player     User     @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, playerId])
+  @@index([playerId])
+  @@map("campana_jugadores")
+  @@schema("app")
+}
+
+model Mission {
+  id          String              @id @default(uuid()) @db.Uuid
+  campaignId  String              @map("campana_id") @db.Uuid
+  title       String              @map("titulo") @db.VarChar(160)
+  description String              @default("") @map("descripcion")
+  status      String              @default("available") @map("estado")
+  reward      String              @default("") @map("recompensa")
+  rewardXp    Int                 @default(0) @map("recompensa_xp")
+  rewardGold  Int                 @default(0) @map("recompensa_oro")
+  difficulty  String              @default("medium") @map("dificultad")
+  createdAt   DateTime            @default(now()) @map("creado_en") @db.Timestamptz(3)
+  campaign    Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  assignments MissionAssignment[]
+
+  @@index([campaignId, status])
+  @@map("misiones")
+  @@schema("app")
+}
+
+model MissionAssignment {
+  missionId  String    @map("mision_id") @db.Uuid
+  playerId   String    @map("jugador_id") @db.Uuid
+  acceptedAt DateTime? @map("aceptada_en") @db.Timestamptz(3)
+  mission    Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  player     User      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([missionId, playerId])
+  @@index([playerId])
+  @@map("mision_asignados")
+  @@schema("app")
+}
+
+model Encounter {
+  id                  String   @id @default(uuid()) @db.Uuid
+  campaignId          String   @map("campana_id") @db.Uuid
+  name                String   @map("nombre") @db.VarChar(160)
+  description         String   @default("") @map("descripcion")
+  status              String   @default("pending") @map("estado")
+  monsters            Json     @default("[]") @map("monstruos")
+  initiativeOrder     Json     @default("[]") @map("orden_iniciativa")
+  round               Int      @default(0) @map("ronda")
+  xpTotal             Int      @default(0) @map("xp_total")
+  estimatedDifficulty String   @default("") @map("dificultad_est")
+  createdAt           DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  campaign            Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("encuentros")
+  @@schema("app")
+}
+
+model Character {
+  id             String    @id @default(uuid()) @db.Uuid
+  ownerId        String    @map("usuario_id") @db.Uuid
+  campaignId     String?   @map("campana_id") @db.Uuid
+  name           String    @map("nombre") @db.VarChar(160)
+  race           String    @map("raza") @db.VarChar(80)
+  characterClass String    @map("clase") @db.VarChar(80)
+  level          Int       @default(1) @map("nivel")
+  alignment      String    @default("") @map("alineacion")
+  strength       Int       @default(10) @map("fue")
+  dexterity      Int       @default(10) @map("des")
+  constitution   Int       @default(10) @map("con")
+  intelligence   Int       @default(10) @map("int")
+  wisdom         Int       @default(10) @map("sab")
+  charisma       Int       @default(10) @map("car")
+  createdAt      DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  owner          User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  campaign       Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
+  @@index([campaignId])
+  @@map("personajes")
+  @@schema("app")
+}

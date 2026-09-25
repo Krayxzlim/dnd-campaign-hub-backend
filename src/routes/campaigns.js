@@ -1,189 +1,150 @@
-const express = require("express");
-const router = express.Router();
-const { pool } = require("../db/database");
-const { authMiddleware, dmOnly } = require("../middleware/auth");
-function mapCampaign(c) {
-  return {
-    id: c.id,
-    name: c.nombre,
-    description: c.descripcion,
-    dmId: c.dm_id,
-    status: c.estado,
-    image: c.imagen,
-    createdAt: c.creado_en,
-    ...(c.playerCount !== undefined && { playerCount: c.playerCount }),
-    ...(c.missionCount !== undefined && { missionCount: c.missionCount }),
-    ...(c.players !== undefined && { players: c.players }),
-  };
-}
-
-async function enriquecer(campanas) {
-  return Promise.all(
-    campanas.map(async (c) => {
-      const [
-        {
-          rows: [{ count: players }],
+const { Router } = require("express");
+const { z } = require("zod");
+const {
+  route,
+  uuid,
+  text,
+  fail,
+  visibleCampaign,
+  campaignAccess,
+  transaction,
+} = require("../lib/http");
+const fields = z
+  .object({
+    name: text,
+    description: z.string().max(20000).default(""),
+    image: z.string().max(500).default("🗺️"),
+    status: z.enum(["active", "completed", "archived"]).default("active"),
+  })
+  .strict();
+const include = { _count: { select: { players: true, missions: true } } };
+const map = ({ _count, ...c }) => ({
+  ...c,
+  playerCount: _count?.players || 0,
+  missionCount: _count?.missions || 0,
+});
+module.exports = ({ db, auth }) => {
+  const router = Router();
+  router.use(auth);
+  router.get(
+    "/",
+    route(async (req, res) =>
+      res.json(
+        (
+          await db.campaign.findMany({
+            where: visibleCampaign(req.user.id),
+            include,
+            orderBy: { createdAt: "desc" },
+          })
+        ).map(map),
+      ),
+    ),
+  );
+  router.get(
+    "/:id",
+    route(async (req, res) => {
+      await campaignAccess(db, req.params.id, req.user.id);
+      const c = await db.campaign.findUnique({
+        where: { id: req.params.id },
+        include: {
+          ...include,
+          players: {
+            include: {
+              player: { select: { id: true, username: true, avatar: true } },
+            },
+          },
         },
-        {
-          rows: [{ count: missions }],
-        },
-      ] = await Promise.all([
-        pool.query(
-          "SELECT COUNT(*) FROM campana_jugadores WHERE campana_id=$1",
-          [c.id],
-        ),
-        pool.query("SELECT COUNT(*) FROM misiones WHERE campana_id=$1", [c.id]),
-      ]);
-      return mapCampaign({
-        ...c,
-        playerCount: +players,
-        missionCount: +missions,
       });
+      if (!c) fail(404, "Campaña no encontrada");
+      res.json({ ...map(c), players: c.players.map((p) => p.player) });
     }),
   );
-}
-
-// GET /api/campaigns
-router.get("/", authMiddleware, async (req, res) => {
-  let rows;
-  if (req.user.role === "dm") {
-    ({ rows } = await pool.query(
-      "SELECT * FROM campanas WHERE dm_id=$1 ORDER BY creado_en DESC",
-      [req.user.id],
-    ));
-  } else {
-    ({ rows } = await pool.query(
-      `SELECT c.* FROM campanas c
-       JOIN campana_jugadores cj ON cj.campana_id=c.id
-       WHERE cj.jugador_id=$1 ORDER BY c.creado_en DESC`,
-      [req.user.id],
-    ));
-  }
-  res.json(await enriquecer(rows));
-});
-
-// GET /api/campaigns/:id
-router.get("/:id", authMiddleware, async (req, res) => {
-  const { rows } = await pool.query("SELECT * FROM campanas WHERE id=$1", [
-    req.params.id,
-  ]);
-  if (!rows.length)
-    return res.status(404).json({ error: "Campaña no encontrada" });
-
-  if (req.user.role !== "dm") {
-    const check = await pool.query(
-      "SELECT 1 FROM campana_jugadores WHERE campana_id=$1 AND jugador_id=$2",
-      [req.params.id, req.user.id],
-    );
-    if (!check.rows.length)
-      return res.status(403).json({ error: "Sin acceso a esta campaña" });
-  }
-
-  const { rows: players } = await pool.query(
-    `SELECT u.id,u.username,u.email,u.role,u.avatar FROM usuarios u
-     JOIN campana_jugadores cj ON cj.jugador_id=u.id
-     WHERE cj.campana_id=$1`,
-    [req.params.id],
+  router.post(
+    "/",
+    route(async (req, res) => {
+      res
+        .status(201)
+        .json(
+          map(
+            await db.campaign.create({
+              data: { ...fields.parse(req.body), dmId: req.user.id },
+              include,
+            }),
+          ),
+        );
+    }),
   );
-  res.json(mapCampaign({ ...rows[0], players }));
-});
-
-// POST /api/campaigns
-// Acepta tanto nombres en español (nombre/descripcion/imagen) como los que
-// manda el frontend en inglés (name/description/image), para no depender
-// de que ambos lados usen la misma convención.
-router.post("/", authMiddleware, dmOnly, async (req, res) => {
-  const { nombre, name, descripcion, description, imagen, image } = req.body;
-  const campNombre = nombre || name;
-  const campDescripcion = descripcion || description || "";
-  const campImagen = imagen || image || "🗺️";
-
-  if (!campNombre) return res.status(400).json({ error: "Nombre requerido" });
-
-  const newId = "campaign-" + Date.now();
-  const { rows } = await pool.query(
-    "INSERT INTO campanas (id,nombre,descripcion,dm_id,imagen) VALUES ($1,$2,$3,$4,$5) RETURNING *",
-    [newId, campNombre, campDescripcion, req.user.id, campImagen],
+  router.put(
+    "/:id",
+    route(async (req, res) => {
+      const data = fields.partial().parse(req.body);
+      res.json(
+        await transaction(db, async (tx) => {
+          await campaignAccess(tx, req.params.id, req.user.id, true);
+          return map(
+            await tx.campaign.update({
+              where: { id: req.params.id },
+              data,
+              include,
+            }),
+          );
+        }),
+      );
+    }),
   );
-  res.status(201).json(mapCampaign(rows[0]));
-});
-
-// PUT /api/campaigns/:id
-router.put("/:id", authMiddleware, dmOnly, async (req, res) => {
-  const {
-    nombre,
-    name,
-    descripcion,
-    description,
-    imagen,
-    image,
-    estado,
-    status,
-  } = req.body;
-  const campNombre = nombre || name;
-  const campDescripcion = descripcion || description;
-  const campImagen = imagen || image;
-  const campEstado = estado || status;
-
-  const { rows } = await pool.query(
-    `UPDATE campanas SET nombre=$1,descripcion=$2,imagen=$3,estado=$4
-     WHERE id=$5 AND dm_id=$6 RETURNING *`,
-    [
-      campNombre,
-      campDescripcion,
-      campImagen,
-      campEstado,
-      req.params.id,
-      req.user.id,
-    ],
+  router.delete(
+    "/:id",
+    route(async (req, res) => {
+      await transaction(db, async (tx) => {
+        await campaignAccess(tx, req.params.id, req.user.id, true);
+        await tx.campaign.delete({ where: { id: req.params.id } });
+      });
+      res.json({ message: "Campaña eliminada" });
+    }),
   );
-  if (!rows.length)
-    return res.status(404).json({ error: "Campaña no encontrada" });
-  res.json(mapCampaign(rows[0]));
-});
-
-// DELETE /api/campaigns/:id
-router.delete("/:id", authMiddleware, dmOnly, async (req, res) => {
-  const { rowCount } = await pool.query(
-    "DELETE FROM campanas WHERE id=$1 AND dm_id=$2",
-    [req.params.id, req.user.id],
+  router.post(
+    "/:id/players",
+    route(async (req, res) => {
+      const { playerId } = z
+        .object({ playerId: uuid })
+        .strict()
+        .parse(req.body);
+      await transaction(db, async (tx) => {
+        await campaignAccess(tx, req.params.id, req.user.id, true);
+        if (playerId === req.user.id)
+          fail(400, "El propietario ya participa como DM");
+        if (!(await tx.user.findUnique({ where: { id: playerId } })))
+          fail(404, "Jugador no encontrado");
+        await tx.campaignPlayer.create({
+          data: { campaignId: req.params.id, playerId },
+        });
+      });
+      res.status(201).json({ message: "Jugador añadido" });
+    }),
   );
-  if (!rowCount)
-    return res.status(404).json({ error: "Campaña no encontrada" });
-  res.json({ message: "Campaña eliminada" });
-});
-
-// POST /api/campaigns/:id/players
-router.post("/:id/players", authMiddleware, dmOnly, async (req, res) => {
-  const { playerId } = req.body;
-  if (!playerId) return res.status(400).json({ error: "playerId requerido" });
-
-  const player = await pool.query(
-    "SELECT id FROM usuarios WHERE id=$1 AND role='player'",
-    [playerId],
+  router.delete(
+    "/:id/players/:pid",
+    route(async (req, res) => {
+      uuid.parse(req.params.pid);
+      await transaction(db, async (tx) => {
+        await campaignAccess(tx, req.params.id, req.user.id, true);
+        await tx.missionAssignment.deleteMany({
+          where: {
+            playerId: req.params.pid,
+            mission: { campaignId: req.params.id },
+          },
+        });
+        await tx.character.updateMany({
+          where: { ownerId: req.params.pid, campaignId: req.params.id },
+          data: { campaignId: null },
+        });
+        const removed = await tx.campaignPlayer.deleteMany({
+          where: { campaignId: req.params.id, playerId: req.params.pid },
+        });
+        if (!removed.count) fail(404, "Participante no encontrado");
+      });
+      res.json({ message: "Jugador removido" });
+    }),
   );
-  if (!player.rows.length)
-    return res.status(404).json({ error: "Jugador no encontrado" });
-
-  try {
-    await pool.query(
-      "INSERT INTO campana_jugadores (id,campana_id,jugador_id) VALUES ('cp-'||$1,$2,$3)",
-      [Date.now(), req.params.id, playerId],
-    );
-  } catch {
-    return res.status(409).json({ error: "El jugador ya está en la campaña" });
-  }
-
-  res.status(201).json({ message: "Jugador añadido" });
-});
-
-// DELETE /api/campaigns/:id/players/:pid
-router.delete("/:id/players/:pid", authMiddleware, dmOnly, async (req, res) => {
-  await pool.query(
-    "DELETE FROM campana_jugadores WHERE campana_id=$1 AND jugador_id=$2",
-    [req.params.id, req.params.pid],
-  );
-  res.json({ message: "Jugador removido" });
-});
-
-module.exports = router;
+  return router;
+};

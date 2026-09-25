@@ -1,36 +1,27 @@
-const jwt = require('jsonwebtoken');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'dnd-companion-secret-2024';
-
-function authMiddleware(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
-
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Formato de token inválido' });
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    return res.status(403).json({ error: 'Token inválido o expirado' });
-  }
+const { fail } = require("../lib/http");
+// Supabase validates the token remotely. Never trust client-supplied roles or decoded-only JWTs.
+function createAuthMiddleware(db, supabase) {
+  return (req, res, next) =>
+    Promise.resolve()
+      .then(async () => {
+        const match = /^Bearer ([^\s]+)$/i.exec(req.get("authorization") || "");
+        if (!match) fail(401, "Token Bearer requerido");
+        const { data, error } = await supabase.auth.getUser(match[1]);
+        if (error || !data?.user || data.user.is_anonymous || !data.user.email)
+          fail(401, "Sesión inválida o expirada");
+        const identity = data.user;
+        const rawName = identity.user_metadata?.username;
+        const username =
+          typeof rawName === "string" && rawName.trim()
+            ? rawName.trim().slice(0, 80)
+            : identity.email.split("@")[0];
+        req.user = await db.user.upsert({
+          where: { id: identity.id },
+          create: { id: identity.id, email: identity.email, username },
+          update: { email: identity.email },
+        });
+        next();
+      })
+      .catch(next);
 }
-
-function dmOnly(req, res, next) {
-  if (req.user.role !== 'dm') {
-    return res.status(403).json({ error: 'Acceso restringido al Dungeon Master' });
-  }
-  next();
-}
-
-function generateToken(user) {
-  return jwt.sign(
-    { id: user.id, username: user.username, email: user.email, role: user.role, avatar: user.avatar },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
-}
-
-module.exports = { authMiddleware, dmOnly, generateToken };
+module.exports = { authMiddleware: createAuthMiddleware };
