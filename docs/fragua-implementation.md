@@ -56,7 +56,7 @@ Todos requieren el token de Supabase de la cuenta. La app nunca recibe credencia
 
 El backend tiene 25 pruebas aprobadas: reglas de cálculo, descansos, recursos, Ritual Adept, Recuperación arcana, permisos, migraciones/RLS, aislamiento de notas, reintentos y dos comandos concurrentes sobre la misma versión. Se ejecutan contra PostgreSQL WASM con Prisma y Express reales; solo la identidad externa se simula.
 
-Android tiene verificación de compilación, lint y pruebas nativas con Robolectric para rutas del inicio, áreas táctiles de las seis salvaciones y conservación de trazos. Consultar la ejecución del PR para su resultado final. No se ha hecho una sesión de juego completa contra el Supabase de producción.
+Android tiene verificación de compilación, lint y pruebas nativas con Robolectric para rutas del inicio, áreas táctiles de las seis salvaciones y conservación de trazos. La ejecución [36408806991](https://github.com/Krayxzlim/DNDcompanion/actions/runs/36408806991) aprobó ensamblado, 3 pruebas de interfaz más la prueba unitaria existente, y lint sin errores. Persisten advertencias de estilos, textos y recursos heredados; esto no equivale a certificar accesibilidad completa. No se ha hecho una sesión de juego completa contra el Supabase de producción.
 
 ## Fuentes y licencia
 
