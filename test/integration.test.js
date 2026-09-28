@@ -385,6 +385,234 @@ test(
       },
     );
     await t.test(
+      "Character commands: ownership, idempotency, stale revision and preserved inventory",
+      async () => {
+        const fresh = await request(
+          "player",
+          "GET",
+          `/characters/${character.id}/sheet`,
+        );
+        assert.equal(fresh.state.configured, false);
+        await request(
+          "outsider",
+          "GET",
+          `/characters/${character.id}/sheet`,
+          undefined,
+          404,
+        );
+        await request("dm", "GET", `/characters/${character.id}/sheet`);
+        const config = {
+          classes: [{ key: "wizard", level: character.level }],
+          hp: { current: 12, max: 12, temp: 0 },
+          xp: 0,
+          speed: 30,
+          armor: { base: 10, dexterity: true, dexCap: 99, shield: 0, bonus: 0 },
+          skills: { arcana: 1 },
+          saveProficiencies: ["intelligence", "wisdom"],
+          resources: [],
+          features: [],
+        };
+        const envelope = {
+          commandId: randomUUID(),
+          expectedVersion: fresh.stateVersion,
+          type: "configure",
+          data: config,
+        };
+        const first = await request(
+          "player",
+          "POST",
+          `/characters/${character.id}/commands`,
+          envelope,
+        );
+        assert.deepEqual(
+          await request(
+            "player",
+            "POST",
+            `/characters/${character.id}/commands`,
+            envelope,
+          ),
+          first,
+        );
+        assert.equal(await db.characterCommand.count(), 1);
+        await request(
+          "player",
+          "POST",
+          `/characters/${character.id}/commands`,
+          { ...envelope, data: { ...config, xp: 50 } },
+          409,
+        );
+        await request(
+          "player",
+          "POST",
+          `/characters/${character.id}/commands`,
+          { ...envelope, commandId: randomUUID() },
+          409,
+        );
+        await request(
+          "dm",
+          "POST",
+          `/characters/${character.id}/commands`,
+          envelope,
+          404,
+        );
+        const concurrent = await Promise.all(
+          [1, 2].map(() =>
+            fetch(base + `/characters/${character.id}/commands`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer player",
+              },
+              body: JSON.stringify({
+                commandId: randomUUID(),
+                expectedVersion: first.sheet.stateVersion,
+                type: "hp",
+                data: { mode: "damage", amount: 1 },
+              }),
+            }),
+          ),
+        );
+        assert.deepEqual(concurrent.map((r) => r.status).sort(), [200, 409]);
+        first.sheet = await request(
+          "player",
+          "GET",
+          `/characters/${character.id}/sheet`,
+        );
+        assert.equal(first.sheet.state.hp.current, 11);
+        const item = {
+          id: randomUUID(),
+          name: "Rope",
+          type: "gear",
+          quantity: 1,
+          equipped: false,
+        };
+        const inventory = await request(
+          "player",
+          "POST",
+          `/characters/${character.id}/commands`,
+          {
+            commandId: randomUUID(),
+            expectedVersion: first.sheet.stateVersion,
+            type: "inventory",
+            data: { operation: "upsert", item },
+          },
+        );
+        await request("player", "PUT", `/characters/${character.id}`, {
+          intelligence: 16,
+        });
+        const revised = await request(
+          "player",
+          "GET",
+          `/characters/${character.id}/sheet`,
+        );
+        assert.equal(revised.state.inventory[0].name, "Rope");
+        assert.equal(revised.state.configured, false);
+        assert.equal(revised.stateVersion, inventory.sheet.stateVersion + 1);
+        const history = await request(
+          "player",
+          "GET",
+          `/characters/${character.id}/commands`,
+        );
+        assert.equal(history.length, 3);
+        assert.equal(history[0].result.sheet, undefined);
+      },
+    );
+    await t.test(
+      "Notes preserve strokes, isolate owners and reject stale edits",
+      async () => {
+        const sectionId = randomUUID(),
+          noteId = randomUUID();
+        await request("player", "PUT", `/notebooks/sections/${sectionId}`, {
+          name: "Barovia",
+          order: 0,
+        });
+        const note = {
+          title: "Mapa",
+          sectionId,
+          text: "Entrada norte",
+          strokes: [
+            {
+              color: "#DBB56B",
+              width: 3,
+              points: [
+                { x: 0.2, y: 0.3 },
+                { x: 0.8, y: 0.9 },
+              ],
+            },
+          ],
+        };
+        const n = await request("player", "PUT", `/notebooks/notes/${noteId}`, {
+          expectedVersion: -1,
+          note,
+        });
+        assert.equal(n.version, 0);
+        assert.deepEqual(n.strokes, note.strokes);
+        assert.deepEqual(
+          await request("player", "PUT", `/notebooks/notes/${noteId}`, {
+            expectedVersion: -1,
+            note,
+          }),
+          n,
+        );
+        await request(
+          "outsider",
+          "PUT",
+          `/notebooks/sections/${sectionId}`,
+          { name: "Stolen", order: 0 },
+          404,
+        );
+        await request(
+          "outsider",
+          "PUT",
+          `/notebooks/notes/${noteId}`,
+          { expectedVersion: 0, note },
+          404,
+        );
+        assert.equal(
+          (await request("outsider", "GET", "/notebooks")).notes.length,
+          0,
+        );
+        const update = {
+          expectedVersion: 0,
+          note: { ...note, text: "Entrada sur" },
+        };
+        const next = await request(
+          "player",
+          "PUT",
+          `/notebooks/notes/${noteId}`,
+          update,
+        );
+        assert.equal(next.version, 1);
+        await request(
+          "player",
+          "PUT",
+          `/notebooks/notes/${noteId}`,
+          { expectedVersion: 0, note },
+          409,
+        );
+        await request(
+          "player",
+          "DELETE",
+          `/notebooks/notes/${noteId}?version=0`,
+          undefined,
+          409,
+        );
+        await request(
+          "player",
+          "DELETE",
+          `/notebooks/sections/${sectionId}`,
+          undefined,
+          409,
+        );
+        await request(
+          "player",
+          "DELETE",
+          `/notebooks/notes/${noteId}?version=1`,
+        );
+        await request("player", "DELETE", `/notebooks/sections/${sectionId}`);
+      },
+    );
+    await t.test(
       "Removing a participant revokes access and cleans assignments atomically",
       async () => {
         await request(
@@ -422,7 +650,7 @@ test(
         const rls = await pg.query(
           "SELECT relrowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='app' AND c.relkind='r'",
         );
-        assert.equal(rls.rows.length, 7);
+        assert.equal(rls.rows.length, 10);
         assert.ok(rls.rows.every((r) => r.relrowsecurity));
         const privileges = await pg.query(
           "SELECT has_schema_privilege('anon','app','USAGE') a, has_schema_privilege('authenticated','app','USAGE') b",

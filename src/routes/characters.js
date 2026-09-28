@@ -42,6 +42,7 @@ module.exports = ({ db, auth }) => {
             ? { campaignId, campaign: visibleCampaign(req.user.id) }
             : { ownerId: req.user.id },
           orderBy: { createdAt: "desc" },
+          omit: { gameData: true },
         }),
       );
     }),
@@ -68,15 +69,29 @@ module.exports = ({ db, auth }) => {
         data = fields.partial().parse(req.body);
       res.json(
         await transaction(db, async (tx) => {
-          if (
-            !(await tx.character.findFirst({
-              where: { id, ownerId: req.user.id },
-            }))
-          )
-            fail(404, "Personaje no encontrado");
+          const current = await tx.character.findFirst({
+            where: { id, ownerId: req.user.id },
+          });
+          if (!current) fail(404, "Personaje no encontrado");
           if (data.campaignId)
             await campaignAccess(tx, data.campaignId, req.user.id);
-          return tx.character.update({ where: { id }, data });
+          return tx.character.update({
+            where: { id },
+            data: {
+              ...data,
+              stateVersion: { increment: 1 },
+              ...(Object.keys(data).some(
+                (k) => !["name", "alignment", "campaignId"].includes(k),
+              )
+                ? {
+                    gameData: {
+                      ...require("../game/rules").state(current),
+                      configured: false,
+                    },
+                  }
+                : {}),
+            },
+          });
         }),
       );
     }),
