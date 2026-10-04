@@ -384,6 +384,48 @@ test(
         );
       },
     );
+    await t.test("Android catalog -> create -> list -> sheet for all twelve Spanish class labels", async () => {
+      await request(null, "GET", "/ready");
+      const catalog = await request("player", "GET", "/catalog/species");
+      assert.equal(catalog.document, "srd-2024");
+      assert.ok(catalog.results.length > 0);
+      const labels = ["Bárbaro", "Bardo", "Clérigo", "Druida", "Guerrero", "Mago",
+        "Monje", "Paladín", "Explorador", "Pícaro", "Hechicero", "Brujo"];
+      for (const label of labels) {
+        const created = await request("player", "POST", "/characters", {
+          name: "Prueba " + label, race: catalog.results[0].name,
+          characterClass: label, level: 5, alignment: "Caótico Neutral",
+          strength: 9, dexterity: 10, constitution: 12, intelligence: 15, wisdom: 10, charisma: 14,
+        }, 201);
+        const sheet = await request("player", "GET", `/characters/${created.id}/sheet`);
+        assert.equal(sheet.characterId, created.id);
+        assert.equal(sheet.state.classes.length, 1);
+        assert.equal(sheet.state.configured, false);
+        assert.ok((await request("player", "GET", "/characters")).some(c => c.id === created.id));
+        await request("player", "DELETE", `/characters/${created.id}`);
+      }
+      const invalid = await request("player", "POST", "/characters", {
+        name: "", race: catalog.results[0].name, characterClass: "Mago",
+      }, 400);
+      assert.ok(invalid.details.some(d => d.path === "name"));
+    });
+    await t.test("Pending gameplay migration reports a schema error for readiness, list and create", async () => {
+      await pg.exec('ALTER TABLE app.personajes RENAME COLUMN version_estado TO version_estado_test_missing');
+      try {
+        for (const [method, path, body] of [
+          ["GET", "/ready"], ["GET", "/characters"],
+          ["POST", "/characters", { name: "Blocked", race: "Elf", characterClass: "Mago" }],
+        ]) {
+          await db.$disconnect();
+          const error = await request("player", method, path, body, 503);
+          assert.equal(error.code, "DATABASE_SCHEMA_OUTDATED");
+        }
+      } finally {
+        await db.$disconnect();
+        await pg.exec('ALTER TABLE app.personajes RENAME COLUMN version_estado_test_missing TO version_estado');
+      }
+      await request(null, "GET", "/ready");
+    });
     await t.test(
       "Character commands: ownership, idempotency, stale revision and preserved inventory",
       async () => {

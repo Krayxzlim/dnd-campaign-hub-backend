@@ -8,6 +8,10 @@ function createApp({ db, supabase, origins = ["http://localhost:5173"] }) {
   app.use(cors({ origin: origins }));
   app.use(express.json({ limit: "1mb" }));
   app.get("/api/health", (req, res) => res.json({ status: "ok" }));
+  app.get("/api/ready", require("./lib/http").route(async (req, res) => {
+    await require("./db/readiness").checkDatabase(db);
+    res.json({ status: "ready" });
+  }));
   const deps = { db, auth: authMiddleware(db, supabase) };
   app.use("/api/characters", require("./routes/game")(deps));
   app.use("/api/catalog", require("./routes/catalog")(deps));
@@ -35,6 +39,11 @@ function createApp({ db, supabase, origins = ["http://localhost:5173"] }) {
           message: i.message,
         })),
       });
+    const databaseError = require("./db/readiness").databaseError(err);
+    if (databaseError) {
+      console.error("API database error:", err.code || err.name);
+      return res.status(503).json(databaseError);
+    }
     if (err.code === "P2002")
       return res.status(409).json({ error: "El registro ya existe" });
     if (err.code === "P2003")

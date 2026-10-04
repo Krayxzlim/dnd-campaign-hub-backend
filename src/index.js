@@ -16,6 +16,15 @@ async function start() {
     },
   );
   await prisma.$connect();
+  try {
+    await require("./db/readiness").checkDatabase(prisma);
+  } catch (error) {
+    await prisma.$disconnect();
+    const problem = require("./db/readiness").databaseError(error);
+    throw new Error(problem
+      ? `${problem.code}: ${problem.error} Revisá npm run db:generate y npm run db:deploy.`
+      : "No se pudo verificar la estructura de la base de datos.");
+  }
   const app = createApp({
     db: prisma,
     supabase,

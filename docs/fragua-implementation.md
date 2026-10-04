@@ -63,3 +63,32 @@ Android tiene verificación de compilación, lint y pruebas nativas con Robolect
 Las reglas centrales se contrastaron con [SRD 5.2.1](https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf). Las instantáneas de clases y especies proceden de [Open5e v2](https://open5e.com/api-docs), documento `srd-2024`, recuperadas el 28 de septiembre de 2026. Open5e identifica ese documento como SRD 5.2; la app conserva esa procedencia y no lo rebautiza 5.2.1. Las descripciones originales se conservan en inglés.
 
 This work includes material from the System Reference Document 5.2 and 5.2.1 (SRD) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode. Las explicaciones breves en español y su adaptación a cálculos/interacciones son modificaciones de Fragua; no implican aprobación de Wizards of the Coast.
+
+## Revisión de creación y conexión — 2026-10-04
+
+La inspección de `fecpedqshkgkbxxukbeg` confirmó que solo está registrada la migración inicial. Faltan `app.personajes.datos_juego`, `version_estado`, y las tablas de operaciones/notas. El backend de Fragua exige esa migración incluso para listar o crear personajes. La solicitud de aplicarla fue bloqueada por revisión automática; **no se modificó la base remota**.
+
+Cambios de diagnóstico: `GET /api/health` comprueba el proceso; `GET /api/ready` consulta mediante Prisma las tablas necesarias. El inicio también comprueba el esquema. P2021/P2022 devuelven `503 DATABASE_SCHEMA_OUTDATED`; un cliente Prisma incompatible devuelve `DATABASE_CLIENT_MISMATCH`; los errores de conexión conocidos devuelven `DATABASE_UNAVAILABLE`, sin credenciales ni consultas en la respuesta.
+
+Después de actualizar esta rama, en la computadora que ejecuta el backend:
+
+```sh
+npm ci
+npm run db:generate
+npm run db:deploy
+npm run dev
+```
+
+`db:deploy` modifica la base configurada: aplicar después de autorizar la migración pendiente. La inicial ya está registrada; no repetir `db:baseline` ni usar reset. No editar manualmente el historial. La migración pendiente es `20260927030000_fragua_gameplay`; añade columnas, tablas, índices, restricciones y RLS sin borrar personajes.
+
+Comprobar `http://localhost:3001/api/ready` desde la computadora. Para el emulador Android se utiliza `http://10.0.2.2:3001/api`; `localhost` en Android apunta al propio dispositivo. Para dispositivo físico, esta app requiere un backend HTTPS accesible. Supabase Auth accesible no implica que Express y PostgreSQL estén listos.
+
+Verificación: 27 pruebas backend aprobadas, incluyendo catálogo → alta con las 12 etiquetas españolas de clase → listado → ficha en PostgreSQL de prueba con Prisma real (identidad Supabase simulada). También se reprodujo la ausencia de columna y se verificaron errores 503 en readiness, listado y alta. No equivale a una prueba desde el equipo del usuario.
+
+### Estado final de esta revisión
+
+Las correcciones están guardadas en commits locales. La publicación en GitHub también fue rechazada por la revisión automática de aprobación: requiere autorización explícita para los repositorios `Krayxzlim/DNDcompanion` y `Krayxzlim/dnd-campaign-hub-backend`. No se ejecutó CI de esta revisión. La migración remota continúa pendiente por el mismo requisito de autorización para modificar Supabase. Las 27 pruebas backend volvieron a pasar tras reconciliar las ramas.
+
+### Actualización autorizada — 2026-10-04
+
+Con autorización explícita del usuario, se aplicó la migración `20260927030000_fragua_gameplay` a Supabase `fecpedqshkgkbxxukbeg` y se registró su checksum en el historial Prisma. Se verificaron las dos columnas nuevas, las tres tablas y RLS. Esto resuelve el bloqueo de esquema señalado arriba; el backend que corre en la computadora del usuario debe actualizarse y reiniciarse. No se modificaron contraseñas ni se borraron personajes.
