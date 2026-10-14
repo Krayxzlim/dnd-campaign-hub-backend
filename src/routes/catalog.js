@@ -1,6 +1,7 @@
 const { Router } = require("express");
 const { z } = require("zod");
 const { route } = require("../lib/http");
+const creation = require("../game/creation-rules");
 const cache = new Map();
 const entry = z.object({
   key: z.string(),
@@ -48,6 +49,14 @@ module.exports = ({ auth }) => {
   const r = Router();
   r.use(auth);
   r.get(
+    "/creation",
+    route(async (req, res) => res.json(creation.catalog())),
+  );
+  r.post(
+    "/creation/preview",
+    route(async (req, res) => res.json(creation.preview(req.body))),
+  );
+  r.get(
     "/species",
     route(async (req, res) =>
       res.json({
@@ -60,6 +69,13 @@ module.exports = ({ auth }) => {
             description: s.traits
               .map((t) => `${t.name}: ${t.desc}`)
               .join("\n\n"),
+            traits: s.traits.map((t) => ({
+              name: t.name,
+              description: t.desc,
+              type: t.type,
+            })),
+            size: s.traits.find((t) => t.type === "SIZE")?.desc || "",
+            speed: s.traits.find((t) => t.type === "SPEED")?.desc || "",
             source: "Open5e · SRD 2024",
           })),
       }),
@@ -105,12 +121,10 @@ module.exports = ({ auth }) => {
         cache.set(key, { at: Date.now(), data: output });
         res.json(output);
       } catch {
-        res
-          .status(502)
-          .json({
-            error:
-              "El catálogo Open5e no está disponible. Podés consultar los conjuros ya guardados.",
-          });
+        res.status(502).json({
+          error:
+            "El catálogo Open5e no está disponible. Podés consultar los conjuros ya guardados.",
+        });
       }
     }),
   );

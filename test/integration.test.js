@@ -86,6 +86,77 @@ test(
       );
       return data;
     }
+    await t.test(
+      "Creation catalog and base preview are authenticated, strict and read-only",
+      async () => {
+        const input = {
+          classKey: "wizard",
+          method: "standard",
+          baseScores: {
+            strength: 8,
+            dexterity: 13,
+            constitution: 14,
+            intelligence: 15,
+            wisdom: 12,
+            charisma: 10,
+          },
+        };
+        await request(null, "GET", "/catalog/creation", undefined, 401);
+        await request("invalid", "GET", "/catalog/creation", undefined, 401);
+        await request(null, "POST", "/catalog/creation/preview", input, 401);
+        const data = await request("player", "GET", "/catalog/creation");
+        assert.equal(data.classes.length, 12);
+        assert.equal(data.ruleset, "srd-2024");
+        const before = await db.character.count();
+        const result = await request(
+          "player",
+          "POST",
+          "/catalog/creation/preview",
+          input,
+        );
+        assert.deepEqual(result.baseScores, input.baseScores);
+        assert.equal(result.recommendedScores.intelligence, 15);
+        assert.equal(result.scope, "base-abilities");
+        await request(
+          "player",
+          "POST",
+          "/catalog/creation/preview",
+          { ...input, method: "manual" },
+          400,
+        );
+        await request(
+          "player",
+          "POST",
+          "/catalog/creation/preview",
+          { ...input, level: 2 },
+          400,
+        );
+        await request(
+          "player",
+          "POST",
+          "/catalog/creation/preview",
+          { ...input, baseScores: { ...input.baseScores, intelligence: 14 } },
+          422,
+        );
+        await request(
+          "player",
+          "POST",
+          "/catalog/creation/preview",
+          { ...input, method: "rolled" },
+          422,
+        );
+        assert.equal(await db.character.count(), before);
+        const species = await request("player", "GET", "/catalog/species");
+        for (const item of species.results) {
+          assert.equal(
+            item.description,
+            item.traits.map((t) => `${t.name}: ${t.description}`).join("\n\n"),
+          );
+          assert.ok(item.size);
+          assert.ok(item.speed);
+        }
+      },
+    );
     let campaign, mission, encounter, character;
     await t.test(
       "Reject missing/invalid tokens; metadata cannot grant global DM permissions",
@@ -384,48 +455,105 @@ test(
         );
       },
     );
-    await t.test("Android catalog -> create -> list -> sheet for all twelve Spanish class labels", async () => {
-      await request(null, "GET", "/ready");
-      const catalog = await request("player", "GET", "/catalog/species");
-      assert.equal(catalog.document, "srd-2024");
-      assert.ok(catalog.results.length > 0);
-      const labels = ["Bárbaro", "Bardo", "Clérigo", "Druida", "Guerrero", "Mago",
-        "Monje", "Paladín", "Explorador", "Pícaro", "Hechicero", "Brujo"];
-      for (const label of labels) {
-        const created = await request("player", "POST", "/characters", {
-          name: "Prueba " + label, race: catalog.results[0].name,
-          characterClass: label, level: 5, alignment: "Caótico Neutral",
-          strength: 9, dexterity: 10, constitution: 12, intelligence: 15, wisdom: 10, charisma: 14,
-        }, 201);
-        const sheet = await request("player", "GET", `/characters/${created.id}/sheet`);
-        assert.equal(sheet.characterId, created.id);
-        assert.equal(sheet.state.classes.length, 1);
-        assert.equal(sheet.state.configured, false);
-        assert.ok((await request("player", "GET", "/characters")).some(c => c.id === created.id));
-        await request("player", "DELETE", `/characters/${created.id}`);
-      }
-      const invalid = await request("player", "POST", "/characters", {
-        name: "", race: catalog.results[0].name, characterClass: "Mago",
-      }, 400);
-      assert.ok(invalid.details.some(d => d.path === "name"));
-    });
-    await t.test("Pending gameplay migration reports a schema error for readiness, list and create", async () => {
-      await pg.exec('ALTER TABLE app.personajes RENAME COLUMN version_estado TO version_estado_test_missing');
-      try {
-        for (const [method, path, body] of [
-          ["GET", "/ready"], ["GET", "/characters"],
-          ["POST", "/characters", { name: "Blocked", race: "Elf", characterClass: "Mago" }],
-        ]) {
-          await db.$disconnect();
-          const error = await request("player", method, path, body, 503);
-          assert.equal(error.code, "DATABASE_SCHEMA_OUTDATED");
+    await t.test(
+      "Android catalog -> create -> list -> sheet for all twelve Spanish class labels",
+      async () => {
+        await request(null, "GET", "/ready");
+        const catalog = await request("player", "GET", "/catalog/species");
+        assert.equal(catalog.document, "srd-2024");
+        assert.ok(catalog.results.length > 0);
+        const labels = [
+          "Bárbaro",
+          "Bardo",
+          "Clérigo",
+          "Druida",
+          "Guerrero",
+          "Mago",
+          "Monje",
+          "Paladín",
+          "Explorador",
+          "Pícaro",
+          "Hechicero",
+          "Brujo",
+        ];
+        for (const label of labels) {
+          const created = await request(
+            "player",
+            "POST",
+            "/characters",
+            {
+              name: "Prueba " + label,
+              race: catalog.results[0].name,
+              characterClass: label,
+              level: 5,
+              alignment: "Caótico Neutral",
+              strength: 9,
+              dexterity: 10,
+              constitution: 12,
+              intelligence: 15,
+              wisdom: 10,
+              charisma: 14,
+            },
+            201,
+          );
+          const sheet = await request(
+            "player",
+            "GET",
+            `/characters/${created.id}/sheet`,
+          );
+          assert.equal(sheet.characterId, created.id);
+          assert.equal(sheet.state.classes.length, 1);
+          assert.equal(sheet.state.configured, false);
+          assert.ok(
+            (await request("player", "GET", "/characters")).some(
+              (c) => c.id === created.id,
+            ),
+          );
+          await request("player", "DELETE", `/characters/${created.id}`);
         }
-      } finally {
-        await db.$disconnect();
-        await pg.exec('ALTER TABLE app.personajes RENAME COLUMN version_estado_test_missing TO version_estado');
-      }
-      await request(null, "GET", "/ready");
-    });
+        const invalid = await request(
+          "player",
+          "POST",
+          "/characters",
+          {
+            name: "",
+            race: catalog.results[0].name,
+            characterClass: "Mago",
+          },
+          400,
+        );
+        assert.ok(invalid.details.some((d) => d.path === "name"));
+      },
+    );
+    await t.test(
+      "Pending gameplay migration reports a schema error for readiness, list and create",
+      async () => {
+        await pg.exec(
+          "ALTER TABLE app.personajes RENAME COLUMN version_estado TO version_estado_test_missing",
+        );
+        try {
+          for (const [method, path, body] of [
+            ["GET", "/ready"],
+            ["GET", "/characters"],
+            [
+              "POST",
+              "/characters",
+              { name: "Blocked", race: "Elf", characterClass: "Mago" },
+            ],
+          ]) {
+            await db.$disconnect();
+            const error = await request("player", method, path, body, 503);
+            assert.equal(error.code, "DATABASE_SCHEMA_OUTDATED");
+          }
+        } finally {
+          await db.$disconnect();
+          await pg.exec(
+            "ALTER TABLE app.personajes RENAME COLUMN version_estado_test_missing TO version_estado",
+          );
+        }
+        await request(null, "GET", "/ready");
+      },
+    );
     await t.test(
       "Character commands: ownership, idempotency, stale revision and preserved inventory",
       async () => {
