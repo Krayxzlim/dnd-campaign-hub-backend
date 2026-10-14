@@ -50,11 +50,23 @@ module.exports = ({ auth }) => {
   r.use(auth);
   r.get(
     "/creation",
-    route(async (req, res) => res.json(creation.catalog())),
+    route(async (req, res) =>
+      res.json({
+        ...creation.catalog(),
+        backgroundDecisionsVersion: 1,
+        backgrounds: require("../game/backgrounds").catalog(),
+      }),
+    ),
   );
   r.post(
     "/creation/preview",
     route(async (req, res) => res.json(creation.preview(req.body))),
+  );
+  r.post(
+    "/creation/background-preview",
+    route(async (req, res) =>
+      res.json(require("../game/backgrounds").preview(req.body)),
+    ),
   );
   r.get(
     "/species",

@@ -172,4 +172,4 @@ function preview(input) {
     ),
   };
 }
-module.exports = { catalog, preview };
+module.exports = { catalog, preview, schema };

@@ -181,6 +181,17 @@ function sheet(c) {
     label: LABELS[i],
     score: Math.max(1, c[key] - (s.abilityReductions?.[key] || 0)),
     baseScore: c[key],
+    ...(s.creation
+      ? {
+          breakdown: {
+            base: s.creation.baseScores[key],
+            background: s.creation.background.increases[key],
+            permanent: c[key],
+            reduction: s.abilityReductions?.[key] || 0,
+            total: Math.max(1, c[key] - (s.abilityReductions?.[key] || 0)),
+          },
+        }
+      : {}),
     modifier: mods[i] + (s.saveProficiencies.includes(key) ? pb : 0) - penalty,
     proficient: s.saveProficiencies.includes(key),
   }));
@@ -279,6 +290,17 @@ function sheet(c) {
         label: LABELS[i],
         score: Math.max(1, c[key] - (s.abilityReductions?.[key] || 0)),
         baseScore: c[key],
+        ...(s.creation
+          ? {
+              breakdown: {
+                base: s.creation.baseScores[key],
+                background: s.creation.background.increases[key],
+                permanent: c[key],
+                reduction: s.abilityReductions?.[key] || 0,
+                total: Math.max(1, c[key] - (s.abilityReductions?.[key] || 0)),
+              },
+            }
+          : {}),
         modifier: mods[i],
       })),
       proficiency: pb,
@@ -311,6 +333,10 @@ function sheet(c) {
         : ["Completá PV, competencias, equipo y elecciones antes de jugar."],
     },
   };
+  if (s.creation)
+    output.completeness.warnings.push(
+      "Trasfondo: aumentos de atributos aplicados. Faltan dote de origen, competencias, herramientas y equipo.",
+    );
   output.derived.classFeatures = classFeatures.features(s.classes);
   output.derived.subclassOptions = Object.fromEntries(
     Object.keys(CLASSES).map((k) => [k, classFeatures.subclassOptions(k)]),
@@ -335,6 +361,14 @@ function apply(c, command, roll = (sides) => randomInt(1, sides + 1)) {
     if (!s.configured) fail(422, "Completá la ficha antes de usar recursos.");
   };
   if (type === "configure") {
+    if (
+      s.creation &&
+      (d.classes.length !== 1 || d.classes[0].key !== s.creation.classKey)
+    )
+      fail(
+        422,
+        "La clase debe coincidir con la decisión de creación guardada.",
+      );
     const total = d.classes.reduce((a, x) => a + x.level, 0);
     if (total !== c.level)
       fail(422, "Los niveles de clase deben sumar el nivel del personaje.");

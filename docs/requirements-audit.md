@@ -52,3 +52,7 @@ El endpoint de preview valida únicamente atributos base. No certifica la legali
 Las pruebas de reglas deben cubrir entradas inválidas, decisiones repetidas, modificadores y ausencia de mutación. Las pruebas de API deben verificar autenticación, contrato y persistencia real con Prisma. Las pruebas Android deben recorrer la navegación utilizada y representar una pantalla móvil estrecha. Las pruebas con PGlite utilizan PostgreSQL local de prueba; no reemplazan la persistencia de producción ni modifican Supabase remoto.
 
 La aceptación completa exige los catorce escenarios del documento original. Esta entrega solo verifica el bloque de catálogo, presentación y atributos base; no marca los demás como cumplidos.
+
+## Incremento posterior: trasfondo y procedencia
+
+La entrega documentada en [background-decisions.md](background-decisions.md) agrega elección y aumentos del trasfondo de nivel 1, validación al guardar y un registro permanente separado del estado consumible. Las fichas anteriores conservan sus valores y no reciben una historia inventada. RF-03 y RF-07 siguen parcialmente cubiertos: dote de origen, competencias, herramientas, equipo, mejoras por nivel y correcciones todavía requieren implementación.
