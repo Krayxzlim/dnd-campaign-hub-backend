@@ -195,13 +195,22 @@ function sheet(c) {
     modifier: mods[i] + (s.saveProficiencies.includes(key) ? pb : 0) - penalty,
     proficient: s.saveProficiencies.includes(key),
   }));
-  const skills = SKILLS.map(([key, label, i]) => ({
-    key,
-    label,
-    ability: ABILITIES[i],
-    rank: s.skills[key] || 0,
-    modifier: mods[i] + pb * (s.skills[key] || 0) - penalty,
-  }));
+  const background = s.creation?.background;
+  const skills = SKILLS.map(([key, label, i]) => {
+    const configuredRank = s.skills[key] || 0;
+    const backgroundRank = background?.skillGrants?.includes(key) ? 1 : 0;
+    const rank = Math.max(configuredRank, backgroundRank);
+    return {
+      key,
+      label,
+      ability: ABILITIES[i],
+      rank,
+      configuredRank,
+      backgroundRank,
+      ...(backgroundRank ? { backgroundSource: background.name } : {}),
+      modifier: mods[i] + pb * rank - penalty,
+    };
+  });
   const slots = slotMax(s).map((max, i) => ({
     level: i + 1,
     max,
@@ -335,7 +344,9 @@ function sheet(c) {
   };
   if (s.creation)
     output.completeness.warnings.push(
-      "Trasfondo: aumentos de atributos aplicados. Faltan dote de origen, competencias, herramientas y equipo.",
+      s.creation.background.skillGrants
+        ? "Trasfondo: atributos y competencias de habilidad aplicados. Faltan dote de origen, herramientas y equipo."
+        : "Trasfondo: aumentos de atributos aplicados. Faltan dote de origen, competencias, herramientas y equipo.",
     );
   output.derived.classFeatures = classFeatures.features(s.classes);
   output.derived.subclassOptions = Object.fromEntries(

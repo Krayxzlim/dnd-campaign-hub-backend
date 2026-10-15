@@ -54,6 +54,7 @@ module.exports = ({ auth }) => {
       res.json({
         ...creation.catalog(),
         backgroundDecisionsVersion: 1,
+        backgroundSkillsVersion: 1,
         backgrounds: require("../game/backgrounds").catalog(),
       }),
     ),
