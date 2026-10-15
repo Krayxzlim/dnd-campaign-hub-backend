@@ -52,6 +52,9 @@ test("Reject illegal abilities, patterns, rolls, metadata, and unused purchase p
     { method: "pointBuy", baseScores: abilities([8, 8, 8, 8, 8, 8]) },
   ])
     assert.throws(() => backgrounds.preview({ ...input(), ...change }));
+  const forged = input();
+  forged.background.skillGrants = ["perception"];
+  assert.throws(() => backgrounds.preview(forged));
   const d = input();
   d.background.key = "2014_sage";
   assert.throws(() => backgrounds.preview(d));
@@ -63,6 +66,10 @@ test("All supported backgrounds expose exactly their source abilities and benefi
     assert.equal(new Set(b.abilities).size, 3);
     assert.ok(b.abilities.every((k) => rules.ABILITIES.includes(k)));
     assert.ok(b.feat && b.tools && b.equipment && b.skills && b.source);
+    assert.deepEqual(
+      b.skillGrants.map((k) => k.toLowerCase()),
+      b.skills.split(" and ").map((s) => s.replaceAll(" ", "").toLowerCase()),
+    );
   }
   assert.deepEqual(entries.find((b) => b.key === "srd-2024_sage").abilities, [
     "constitution",
@@ -109,4 +116,59 @@ test("Tracked creation validates scalar consistency and sheet reads do not apply
   const legacy = { ...c, gameData: rules.initial(c) };
   assert.equal(rules.sheet(legacy).derived.abilities[3].breakdown, undefined);
   assert.equal(rules.sheet(legacy).derived.abilities[3].score, 17);
+});
+
+test("Background skill grants stack by rank, survive configuration, and leave legacy sheets unchanged", () => {
+  const d = input(),
+    p = backgrounds.preview(d);
+  const c = { ...p.finalScores, characterClass: "Mago", level: 1 };
+  c.gameData = {
+    ...rules.initial(c),
+    creation: backgrounds.forCharacter(d, { ...c, race: p.speciesName }),
+  };
+  const skill = (key) =>
+    rules.sheet(c).derived.skills.find((s) => s.key === key);
+  assert.equal(skill("arcana").rank, 1);
+  assert.equal(skill("arcana").modifier, 5);
+  assert.equal(skill("arcana").configuredRank, 0);
+  assert.equal(skill("arcana").backgroundSource, "Sabio");
+  c.gameData.skills.arcana = 1;
+  assert.equal(skill("arcana").modifier, 5);
+  c.gameData.skills.arcana = 2;
+  assert.equal(skill("arcana").modifier, 7);
+  const data = {
+    classes: [{ key: "wizard", level: 1 }],
+    hp: { current: 5, max: 7, temp: 0 },
+    xp: 0,
+    speed: 30,
+    armor: c.gameData.armor,
+    skills: {},
+    saveProficiencies: [],
+    resources: [],
+    features: [],
+  };
+  c.gameData = rules.apply(c, { type: "configure", data }).state;
+  assert.equal(skill("arcana").rank, 1);
+  assert.deepEqual(c.gameData.creation.background.skillGrants, [
+    "arcana",
+    "history",
+  ]);
+  const rolled = rules.apply(
+    c,
+    { type: "roll", data: { kind: "skill", key: "arcana" } },
+    () => 10,
+  );
+  assert.equal(rolled.result.total, 15);
+  assert.equal(c.gameData.hp.current, 5);
+  delete c.gameData.creation.background.skillGrants;
+  c.gameData.creation.pending.push("skills");
+  assert.equal(skill("arcana").rank, 0);
+  assert.equal(skill("arcana").backgroundRank, 0);
+  assert.ok(
+    rules
+      .sheet(c)
+      .completeness.warnings.some((s) =>
+        s.includes("competencias, herramientas"),
+      ),
+  );
 });

@@ -11,6 +11,12 @@ const names = {
   Sage: "Sabio",
   Soldier: "Soldado",
 };
+const skillGrants = {
+  "srd-2024_acolyte": ["insight", "religion"],
+  "srd-2024_criminal": ["sleightOfHand", "stealth"],
+  "srd-2024_sage": ["arcana", "history"],
+  "srd-2024_soldier": ["athletics", "intimidation"],
+};
 function catalog() {
   return backgrounds.map(({ pk, fields }) => {
     const rows = benefits
@@ -23,6 +29,7 @@ function catalog() {
       abilities: benefit("ability_score").toLowerCase().split(", "),
       feat: benefit("feat"),
       skills: benefit("skill_proficiency"),
+      skillGrants: [...skillGrants[pk]],
       tools: benefit("tool_proficiency"),
       equipment: benefit("equipment"),
       source: "Open5e · SRD 2024 · " + pk,
@@ -95,9 +102,10 @@ function preview(input) {
       background: {
         ...background,
         name: selected.name,
+        skillGrants: [...selected.skillGrants],
         source: selected.source,
       },
-      pending: ["originFeat", "skills", "tools", "equipment"],
+      pending: ["originFeat", "tools", "equipment"],
     },
     speciesName: selectedSpecies.name,
     className: CLASSES[data.classKey].label,

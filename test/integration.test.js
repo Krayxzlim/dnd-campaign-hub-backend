@@ -93,6 +93,7 @@ test(
           .results[0];
         const catalog = await request("player", "GET", "/catalog/creation");
         assert.equal(catalog.backgroundDecisionsVersion, 1);
+        assert.equal(catalog.backgroundSkillsVersion, 1);
         assert.equal(catalog.backgrounds.length, 4);
         const creation = {
           version: 1,
@@ -169,6 +170,11 @@ test(
           where: { id: created.id },
         });
         assert.equal(saved.intelligence, 17);
+        assert.deepEqual(saved.gameData.creation.background.skillGrants, [
+          "arcana",
+          "history",
+        ]);
+        assert.ok(!saved.gameData.creation.pending.includes("skills"));
         assert.equal(saved.gameData.creation.baseScores.intelligence, 15);
         assert.equal(
           saved.gameData.creation.background.increases.intelligence,
@@ -190,6 +196,10 @@ test(
           `/characters/${created.id}/sheet`,
         );
         assert.equal(sheet.derived.abilities[3].score, 17);
+        assert.equal(
+          sheet.derived.skills.find((s) => s.key === "arcana").modifier,
+          5,
+        );
         assert.equal(sheet.derived.abilities[3].breakdown.base, 15);
         assert.equal(sheet.state.hp.current, 2);
         assert.equal(sheet.state.slotsSpent[1], 1);
@@ -226,6 +236,36 @@ test(
         });
         assert.deepEqual(renamed.gameData.creation, saved.gameData.creation);
         assert.equal(renamed.gameData.hp.current, 2);
+        await request("player", "POST", `/characters/${created.id}/commands`, {
+          commandId: randomUUID(),
+          expectedVersion: renamed.stateVersion,
+          type: "configure",
+          data: {
+            classes: [{ key: "wizard", level: 1 }],
+            hp: { current: 2, max: 9, temp: 0 },
+            xp: 0,
+            speed: 30,
+            armor: renamed.gameData.armor,
+            skills: {},
+            saveProficiencies: [],
+            resources: [],
+            features: [],
+          },
+        });
+        const configured = await request(
+          "player",
+          "GET",
+          `/characters/${created.id}/sheet`,
+        );
+        const arcana = configured.derived.skills.find(
+          (s) => s.key === "arcana",
+        );
+        assert.equal(arcana.rank, 1);
+        assert.equal(arcana.configuredRank, 0);
+        assert.equal(arcana.backgroundSource, "Sabio");
+        assert.equal(configured.state.hp.current, 2);
+        assert.equal(configured.state.slotsSpent[1], 1);
+
         await request("player", "DELETE", `/characters/${created.id}`);
       },
     );

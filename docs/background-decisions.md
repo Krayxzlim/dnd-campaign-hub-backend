@@ -1,6 +1,6 @@
 # Trasfondos y atributos iniciales
 
-Esta entrega implementa la elección del trasfondo y sus aumentos de atributos de nivel 1. Los cuatro trasfondos disponibles son Acólito, Criminal, Sabio y Soldado, procedentes del SRD 2024 de Open5e. No es el catálogo completo del Manual del Jugador. La dote de origen, competencias, herramientas y equipo se muestran como información pendiente: todavía no se conceden ni ejecutan automáticamente.
+Esta entrega implementa la elección del trasfondo y sus aumentos de atributos de nivel 1. Los cuatro trasfondos disponibles son Acólito, Criminal, Sabio y Soldado, procedentes del SRD 2024 de Open5e. No es el catálogo completo del Manual del Jugador. Las competencias de habilidad del trasfondo se conceden en las altas nuevas. La dote de origen, herramientas y equipo se muestran como información pendiente: todavía no se conceden ni ejecutan automáticamente.
 
 ## Contrato y persistencia
 
@@ -38,3 +38,11 @@ El alta sin `creation` conserva el contrato anterior. Android permite elegir exp
 Los personajes con una decisión guardada no permiten cambiar directamente especie, clase, nivel o atributos mediante el PUT genérico: hacerlo invalidaría la procedencia. La API devuelve 409 hasta que exista un flujo de progresión/corrección. Nombre, alineación y campaña siguen siendo editables. Configurar PV y recursos conserva la decisión y no puede sustituir su clase. La configuración restante mantiene su comportamiento anterior.
 
 RF-03 queda parcialmente cubierto (elección, información y aumentos); RF-07 registra base y trasfondo, pero no mejoras de niveles ni otras fuentes. RF-09 a RF-18, decisiones de dotes, equipo y competencias siguen pendientes. No se certifica una ficha completa.
+
+## Competencias de habilidad del trasfondo
+
+El catálogo anuncia `backgroundSkillsVersion: 1` y ofrece `skillGrants` con las claves de las dos habilidades concedidas. En altas nuevas, el servidor copia esas claves verificadas a `creation.background.skillGrants`; el cliente no puede elegir ni sobrescribir las concesiones. `skills` deja de figurar entre los beneficios pendientes para esas altas.
+
+La ficha calcula el rango efectivo como el máximo entre el rango configurado y el rango concedido por el trasfondo. Competencia + competencia no es pericia. La pericia declarada en la configuración conserva su rango 2. La respuesta agrega `configuredRank`, `backgroundRank` y `backgroundSource`; las tiradas usan el modificador efectivo de la misma ficha. Configurar otras opciones no borra el origen de la competencia.
+
+No hay migración implícita: las decisiones guardadas anteriormente sin `skillGrants` mantienen las competencias pendientes. Tampoco se deduce un trasfondo a partir del texto de fichas antiguas. Dotes, competencias de herramientas, equipo y elección de habilidades de clase siguen pendientes. La sustitución de habilidades duplicadas entre fuentes requerirá un flujo de elecciones explícito.
