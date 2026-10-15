@@ -87,6 +87,149 @@ test(
       return data;
     }
     await t.test(
+      "Background decisions persist atomically and preserve legacy creation",
+      async () => {
+        const species = (await request("player", "GET", "/catalog/species"))
+          .results[0];
+        const catalog = await request("player", "GET", "/catalog/creation");
+        assert.equal(catalog.backgroundDecisionsVersion, 1);
+        assert.equal(catalog.backgrounds.length, 4);
+        const creation = {
+          version: 1,
+          ruleset: "srd-2024",
+          speciesKey: species.key,
+          classKey: "wizard",
+          method: "standard",
+          baseScores: {
+            strength: 8,
+            dexterity: 14,
+            constitution: 13,
+            intelligence: 15,
+            wisdom: 12,
+            charisma: 10,
+          },
+          background: {
+            key: "srd-2024_sage",
+            increases: {
+              strength: 0,
+              dexterity: 0,
+              constitution: 1,
+              intelligence: 2,
+              wisdom: 0,
+              charisma: 0,
+            },
+          },
+        };
+        const count = await db.character.count();
+        await request(
+          null,
+          "POST",
+          "/catalog/creation/background-preview",
+          creation,
+          401,
+        );
+        const preview = await request(
+          "player",
+          "POST",
+          "/catalog/creation/background-preview",
+          creation,
+        );
+        assert.equal(await db.character.count(), count);
+        const payload = {
+          name: "Trasfondo",
+          race: species.name,
+          characterClass: "Mago",
+          level: 1,
+          ...preview.finalScores,
+          creation,
+        };
+        await request(
+          "player",
+          "POST",
+          "/characters",
+          { ...payload, intelligence: 19 },
+          422,
+        );
+        await request(
+          "player",
+          "POST",
+          "/characters",
+          { ...payload, level: 2 },
+          422,
+        );
+        assert.equal(await db.character.count(), count);
+        const created = await request(
+          "player",
+          "POST",
+          "/characters",
+          payload,
+          201,
+        );
+        const saved = await db.character.findUnique({
+          where: { id: created.id },
+        });
+        assert.equal(saved.intelligence, 17);
+        assert.equal(saved.gameData.creation.baseScores.intelligence, 15);
+        assert.equal(
+          saved.gameData.creation.background.increases.intelligence,
+          2,
+        );
+        await db.character.update({
+          where: { id: created.id },
+          data: {
+            gameData: {
+              ...saved.gameData,
+              hp: { max: 9, current: 2, temp: 0 },
+              slotsSpent: { 1: 1 },
+            },
+          },
+        });
+        const sheet = await request(
+          "player",
+          "GET",
+          `/characters/${created.id}/sheet`,
+        );
+        assert.equal(sheet.derived.abilities[3].score, 17);
+        assert.equal(sheet.derived.abilities[3].breakdown.base, 15);
+        assert.equal(sheet.state.hp.current, 2);
+        assert.equal(sheet.state.slotsSpent[1], 1);
+        assert.deepEqual(
+          await request("player", "GET", `/characters/${created.id}/sheet`),
+          sheet,
+        );
+        await request(
+          "outsider",
+          "PUT",
+          `/characters/${created.id}`,
+          { name: "No" },
+          404,
+        );
+        await request(
+          "player",
+          "PUT",
+          `/characters/${created.id}`,
+          { intelligence: 19 },
+          409,
+        );
+        await request(
+          "player",
+          "PUT",
+          `/characters/${created.id}`,
+          { level: 2 },
+          409,
+        );
+        await request("player", "PUT", `/characters/${created.id}`, {
+          name: "Ada",
+        });
+        const renamed = await db.character.findUnique({
+          where: { id: created.id },
+        });
+        assert.deepEqual(renamed.gameData.creation, saved.gameData.creation);
+        assert.equal(renamed.gameData.hp.current, 2);
+        await request("player", "DELETE", `/characters/${created.id}`);
+      },
+    );
+    await t.test(
       "Creation catalog and base preview are authenticated, strict and read-only",
       async () => {
         const input = {
