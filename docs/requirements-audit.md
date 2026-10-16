@@ -64,3 +64,7 @@ Las altas nuevas pueden resolver el paquete inicial o 50 po, herramientas y las 
 ## Ampliación: competencias de clase
 
 Las doce clases SRD permiten seleccionar sus habilidades iniciales con cupo y lista validados por la API. Se conserva la procedencia y se combina por rango, sin duplicar bonos del trasfondo. RF-10 continúa parcial: faltan pericia, salvaciones, equipo, conjuros y las demás decisiones de rasgos. Esta entrega no modifica progresión ni aplica concesiones retroactivas.
+
+## Ampliación: base de clase de nivel 1
+
+Las altas versionadas inicializan PV base con dado máximo y Constitución final y registran salvaciones de clase. Leer no restaura recursos consumidos y las concesiones no desaparecen con configuración genérica. RF-12 sigue parcial: faltan aumentos de PV por otras fuentes, reconstrucción y progresión por nivel. Las fichas históricas no se recalculan.

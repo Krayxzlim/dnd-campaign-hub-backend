@@ -192,6 +192,11 @@ test(
           saved.gameData.spells.every((s) => s.grantedBy === "magicInitiate"),
         );
         assert.deepEqual(saved.gameData.creation.pending, []);
+        assert.deepEqual(saved.gameData.hp, { current: 8, max: 8, temp: 0 });
+        assert.deepEqual(saved.gameData.creation.classBasics.saveGrants, [
+          "intelligence",
+          "wisdom",
+        ]);
         assert.equal(
           saved.gameData.creation.background.toolProficiencies[0].key,
           "calligrapher",
@@ -297,6 +302,16 @@ test(
         assert.equal(arcana.rank, 1);
         assert.equal(arcana.configuredRank, 0);
         assert.equal(arcana.classRank, 1);
+        assert.equal(
+          configured.derived.saves.find((s) => s.key === "intelligence")
+            .modifier,
+          5,
+        );
+        assert.equal(
+          configured.derived.saves.find((s) => s.key === "intelligence")
+            .classProficient,
+          true,
+        );
         assert.equal(
           configured.derived.skills.find((s) => s.key === "investigation").rank,
           1,

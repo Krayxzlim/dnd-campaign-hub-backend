@@ -70,6 +70,7 @@ module.exports = ({ db, auth }) => {
                 ? {
                     gameData: {
                       ...rules.initial(data),
+                      ...require("../game/class-basics").initialize(decision),
                       ...require("../game/background-loadout").initialize(
                         decision,
                       ),
