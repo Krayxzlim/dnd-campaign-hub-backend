@@ -5,6 +5,8 @@ const { fail } = require("../lib/http");
 const backgrounds = require("./data/Background.json");
 const benefits = require("./data/BackgroundBenefit.json");
 const species = require("./data/species-2024.json").results;
+const loadout = require("./background-loadout");
+const feats = require("./origin-feats");
 const names = {
   Acolyte: "Acólito",
   Criminal: "Criminal",
@@ -24,6 +26,8 @@ function catalog() {
       .map((b) => b.fields);
     const benefit = (type) => rows.find((r) => r.type === type).desc;
     return {
+      ...loadout.options(pk),
+      originFeat: feats.definition(pk),
       key: pk,
       name: names[fields.name],
       abilities: benefit("ability_score").toLowerCase().split(", "),
@@ -49,7 +53,20 @@ const schema = base.schema
     ruleset: z.literal("srd-2024"),
     speciesKey: z.string().min(1).max(100),
     background: z
-      .object({ key: z.string().min(1).max(100), increases })
+      .object({
+        key: z.string().min(1).max(100),
+        increases,
+        equipmentOption: z.enum(["A", "B"]).optional(),
+        toolChoice: z.string().max(40).optional(),
+        originFeatChoice: z
+          .object({
+            castingAbility: z.enum(["intelligence", "wisdom", "charisma"]),
+            cantrips: z.array(z.string().max(100)).length(2),
+            spell: z.string().max(100),
+          })
+          .strict()
+          .optional(),
+      })
       .strict(),
   })
   .strict();
@@ -84,6 +101,8 @@ function preview(input) {
   );
   if (Object.values(finalScores).some((n) => n > 20))
     fail(422, "El trasfondo no puede elevar un atributo por encima de 20.");
+  const supplies = loadout.decide(background.key, background);
+  const originFeat = feats.decide(background.key, background.originFeatChoice);
   return {
     scope: "background-abilities",
     finalScores,
@@ -101,11 +120,17 @@ function preview(input) {
       finalScores,
       background: {
         ...background,
+        ...supplies,
+        ...(originFeat ? { originFeat } : {}),
         name: selected.name,
         skillGrants: [...selected.skillGrants],
         source: selected.source,
       },
-      pending: ["originFeat", "tools", "equipment"],
+      pending: [
+        ...(originFeat ? [] : ["originFeat"]),
+        ...(supplies.toolProficiencies.length ? [] : ["tools"]),
+        ...(supplies.startingEquipment ? [] : ["equipment"]),
+      ],
     },
     speciesName: selectedSpecies.name,
     className: CLASSES[data.classKey].label,

@@ -67,7 +67,16 @@ module.exports = ({ db, auth }) => {
               ...data,
               ownerId: req.user.id,
               ...(decision
-                ? { gameData: { ...rules.initial(data), creation: decision } }
+                ? {
+                    gameData: {
+                      ...rules.initial(data),
+                      ...require("../game/background-loadout").initialize(
+                        decision,
+                      ),
+                      ...require("../game/origin-feats").initialize(decision),
+                      creation: decision,
+                    },
+                  }
                 : {}),
             },
           });

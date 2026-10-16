@@ -168,7 +168,41 @@ test("Background skill grants stack by rank, survive configuration, and leave le
     rules
       .sheet(c)
       .completeness.warnings.some((s) =>
-        s.includes("competencias, herramientas"),
+        s.includes("competencias de habilidad"),
       ),
+  );
+});
+
+test("Tool proficiency uses its verified ability and applies to tool rolls", () => {
+  const d = input(),
+    p = backgrounds.preview(d),
+    c = {
+      ...p.finalScores,
+      characterClass: "Mago",
+      level: 1,
+      race: p.speciesName,
+    };
+  c.gameData = {
+    ...rules.initial(c),
+    creation: backgrounds.forCharacter(d, c),
+    configured: true,
+  };
+  const tool = rules.sheet(c).derived.tools[0];
+  assert.equal(tool.key, "calligrapher");
+  assert.equal(tool.modifier, 4);
+  assert.equal(
+    rules.apply(
+      c,
+      { type: "roll", data: { kind: "tool", key: "calligrapher" } },
+      () => 10,
+    ).result.total,
+    14,
+  );
+  assert.throws(() =>
+    rules.apply(
+      c,
+      { type: "roll", data: { kind: "tool", key: "thieves" } },
+      () => 10,
+    ),
   );
 });

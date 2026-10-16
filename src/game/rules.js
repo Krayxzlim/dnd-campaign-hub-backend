@@ -196,6 +196,7 @@ function sheet(c) {
     proficient: s.saveProficiencies.includes(key),
   }));
   const background = s.creation?.background;
+  const originFeat = background?.originFeat;
   const skills = SKILLS.map(([key, label, i]) => {
     const configuredRank = s.skills[key] || 0;
     const backgroundRank = background?.skillGrants?.includes(key) ? 1 : 0;
@@ -251,6 +252,17 @@ function sheet(c) {
       attack: pb + mods[CLASSES[x.key].casting] - penalty,
       dc: 8 + pb + mods[CLASSES[x.key].casting],
     }));
+  if (originFeat?.key === "magicInitiate") {
+    const modifier = mods[ABILITIES.indexOf(originFeat.castingAbility)];
+    spellcasting.push({
+      origin: "magicInitiate",
+      label: originFeat.name,
+      ability: originFeat.castingAbility,
+      modifier,
+      attack: pb + modifier - penalty,
+      dc: 8 + pb + modifier,
+    });
+  }
   const attacks = s.inventory
     .filter((x) => x.type === "weapon" && x.equipped && x.quantity > 0)
     .map((x) => {
@@ -312,11 +324,33 @@ function sheet(c) {
           : {}),
         modifier: mods[i],
       })),
+      tools: (s.creation?.background?.toolProficiencies || []).map((tool) => ({
+        ...tool,
+        modifier: mods[ABILITIES.indexOf(tool.ability)] + pb - penalty,
+        source: s.creation.background.name,
+      })),
+      currency: { copper: s.currency?.copper || 0 },
       proficiency: pb,
       saves,
       skills,
       ac: s.configured ? ac : null,
-      initiative: mods[1] - penalty,
+      initiative: mods[1] + (originFeat?.key === "alert" ? pb : 0) - penalty,
+      originFeat: originFeat
+        ? {
+            ...originFeat,
+            freeCastRemaining:
+              originFeat.key === "magicInitiate"
+                ? s.magicInitiateUsed
+                  ? 0
+                  : 1
+                : undefined,
+            turn: s.combatTurn || 0,
+            availableThisTurn:
+              originFeat.key === "savageAttacker" &&
+              (s.combatTurn || 0) > 0 &&
+              s.savageAttackerTurn !== s.combatTurn,
+          }
+        : null,
       speed: Math.max(0, s.speed - s.exhaustion * 5),
       passivePerception:
         10 + skills.find((x) => x.key === "perception").modifier,
@@ -342,12 +376,20 @@ function sheet(c) {
         : ["Completá PV, competencias, equipo y elecciones antes de jugar."],
     },
   };
-  if (s.creation)
-    output.completeness.warnings.push(
-      s.creation.background.skillGrants
-        ? "Trasfondo: atributos y competencias de habilidad aplicados. Faltan dote de origen, herramientas y equipo."
-        : "Trasfondo: aumentos de atributos aplicados. Faltan dote de origen, competencias, herramientas y equipo.",
-    );
+  if (s.creation) {
+    const labels = {
+      originFeat: "dote de origen",
+      skills: "competencias de habilidad",
+      tools: "herramientas",
+      equipment: "equipo",
+    };
+    if (s.creation.pending?.length)
+      output.completeness.warnings.push(
+        "Trasfondo pendiente: " +
+          s.creation.pending.map((k) => labels[k] || k).join(", ") +
+          ".",
+      );
+  }
   output.derived.classFeatures = classFeatures.features(s.classes);
   output.derived.subclassOptions = Object.fromEntries(
     Object.keys(CLASSES).map((k) => [k, classFeatures.subclassOptions(k)]),
@@ -435,12 +477,17 @@ function apply(c, command, roll = (sides) => randomInt(1, sides + 1)) {
     let bonus = 0,
       sides = d.sides || 20,
       count = d.count || 1;
-    if (d.kind === "save" || d.kind === "skill") {
-      const item = before.derived[d.kind === "save" ? "saves" : "skills"].find(
-        (x) => x.key === d.key,
-      );
+    if (d.kind === "save" || d.kind === "skill" || d.kind === "tool") {
+      const item = before.derived[
+        d.kind === "save" ? "saves" : d.kind === "tool" ? "tools" : "skills"
+      ].find((x) => x.key === d.key);
       if (!item) fail(422, "Prueba desconocida");
       bonus = item.modifier;
+      sides = 20;
+      count = 1;
+    }
+    if (d.kind === "initiative") {
+      bonus = before.derived.initiative;
       sides = 20;
       count = 1;
     }
@@ -523,6 +570,7 @@ function apply(c, command, roll = (sides) => randomInt(1, sides + 1)) {
       s.hpReduction = 0;
       s.abilityReductions = {};
       s.arcaneRecoveryUsed = false;
+      s.magicInitiateUsed = false;
       s.hp.current = s.hp.max;
       s.hp.temp = 0;
       s.hitDiceSpent = {};
@@ -591,12 +639,27 @@ function apply(c, command, roll = (sides) => randomInt(1, sides + 1)) {
         422,
         "El conjuro no está preparado ni disponible como ritual de tu libro.",
       );
-    if (!s.classes.some((c) => c.key === spell.origin))
+    const granted =
+      spell.grantedBy === "magicInitiate" &&
+      s.creation?.background?.originFeat?.key === "magicInitiate" &&
+      s.creation.background.originFeat.spells.some((x) => x.key === spell.key);
+    if (!granted && !s.classes.some((c) => c.key === spell.origin))
       fail(422, "El origen del conjuro no pertenece a tus clases.");
     if (spell.concentration && s.concentration && !d.replaceConcentration)
       fail(422, "Confirmá reemplazar la concentración.");
     if (d.ritual && !spell.ritual) fail(422, "Este conjuro no admite ritual.");
-    if (!d.ritual && spell.level > 0) {
+    if (d.originFeatUse && (!granted || spell.level !== 1 || d.ritual))
+      fail(
+        422,
+        "El uso gratuito solo corresponde al conjuro de nivel 1 de Iniciado en la magia.",
+      );
+    if (d.originFeatUse && s.magicInitiateUsed)
+      fail(
+        422,
+        "El lanzamiento gratuito se recupera al finalizar un descanso largo.",
+      );
+    if (d.originFeatUse) s.magicInitiateUsed = true;
+    if (!d.ritual && !d.originFeatUse && spell.level > 0) {
       const slot = before.derived.slots.find(
         (x) =>
           x.level === d.slotLevel &&
@@ -613,6 +676,53 @@ function apply(c, command, roll = (sides) => randomInt(1, sides + 1)) {
       reminder:
         "Verificá componentes, contexto y límite de espacio por turno con el DM.",
     };
+  } else if (type === "beginTurn") {
+    requireReady();
+    if (s.creation?.background?.originFeat?.key !== "savageAttacker")
+      fail(422, "La ficha no tiene Atacante salvaje.");
+    if ((s.combatTurn || 0) >= 1000000000)
+      fail(422, "Límite de turnos alcanzado.");
+    s.combatTurn = (s.combatTurn || 0) + 1;
+    result = {
+      reminder: "Nuevo turno declarado. Atacante salvaje disponible una vez.",
+    };
+  } else if (type === "savageAttacker") {
+    requireReady();
+    if (!before.derived.originFeat?.availableThisTurn)
+      fail(
+        422,
+        "Declará un nuevo turno de combate para usar Atacante salvaje.",
+      );
+    const weapon = s.inventory.find(
+      (x) =>
+        x.id === d.weaponId &&
+        x.type === "weapon" &&
+        x.equipped &&
+        x.quantity > 0,
+    );
+    if (!weapon) fail(422, "Elegí un arma equipada.");
+    const match = /^(\d{1,2})d(4|6|8|10|12|20)$/.exec(weapon.damage);
+    if (!match) fail(422, "Dados de arma no válidos.");
+    const count = Number(match[1]) * (d.critical ? 2 : 1),
+      sides = Number(match[2]);
+    const sets = Array.from({ length: 2 }, () =>
+      Array.from({ length: count }, () => roll(sides)),
+    );
+    const totals = sets.map((dice) => dice.reduce((a, b) => a + b, 0));
+    s.savageAttackerTurn = s.combatTurn;
+    result = {
+      sets,
+      totals,
+      recommended: totals[0] >= totals[1] ? 0 : 1,
+      reminder: `Dados del arma: ${totals[0]} o ${totals[1]}. Elegí un conjunto y agregá los modificadores habituales; no se aplica daño al objetivo automáticamente.`,
+    };
+  } else if (type === "money") {
+    const current = s.currency?.copper || 0;
+    const next = current + d.deltaCopper;
+    if (next < 0 || next > 1000000000)
+      fail(422, "El saldo no puede ser negativo ni superar el límite.");
+    s.currency = { copper: next };
+    result = { deltaCopper: d.deltaCopper, copper: next };
   } else if (type === "inventory") {
     if (d.operation === "remove")
       s.inventory = s.inventory.filter((x) => x.id !== d.id);
@@ -622,6 +732,16 @@ function apply(c, command, roll = (sides) => randomInt(1, sides + 1)) {
       else s.inventory[index] = d.item;
     }
   } else if (type === "spell") {
+    const target = d.operation === "remove" ? d.id : d.spell.id;
+    if (
+      s.spells.some(
+        (spell) => spell.id === target && spell.grantedBy === "magicInitiate",
+      )
+    )
+      fail(
+        422,
+        "Los conjuros concedidos por la dote se conservan como decisión de creación. Su cambio requiere un avance de nivel.",
+      );
     if (d.operation === "remove") {
       s.spells = s.spells.filter((x) => x.id !== d.id);
       if (s.concentration === d.id) s.concentration = null;
