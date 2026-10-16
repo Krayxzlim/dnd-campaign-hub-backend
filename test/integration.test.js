@@ -137,15 +137,21 @@ test(
           "/catalog/creation/background-preview",
           rogueCreation,
         );
-        const rogue = await request("player", "POST", "/characters", {
-          name: "Experto",
-          race: species.name,
-          characterClass: "Pícaro",
-          level: 1,
-          alignment: "Neutral",
-          ...roguePreview.finalScores,
-          creation: rogueCreation,
-        });
+        const rogue = await request(
+          "player",
+          "POST",
+          "/characters",
+          {
+            name: "Experto",
+            race: species.name,
+            characterClass: "Pícaro",
+            level: 1,
+            alignment: "Neutral",
+            ...roguePreview.finalScores,
+            creation: rogueCreation,
+          },
+          201,
+        );
         const rogueSheet = await request(
           "player",
           "GET",
