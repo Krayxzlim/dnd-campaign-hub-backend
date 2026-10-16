@@ -111,6 +111,8 @@ test(
           },
           background: {
             key: "srd-2024_sage",
+            equipmentOption: "A",
+            toolChoice: "calligrapher",
             increases: {
               strength: 0,
               dexterity: 0,
@@ -120,6 +122,18 @@ test(
               charisma: 0,
             },
           },
+        };
+        const wizardSpells = catalog.originSpells.filter((s) =>
+          s.lists.includes("wizard"),
+        );
+        creation.background.originFeatChoice = {
+          castingAbility: "intelligence",
+          cantrips: wizardSpells
+            .filter((s) => s.level === 0)
+            .slice(0, 2)
+            .map((s) => s.key),
+          spell: wizardSpells.find((s) => s.level === 1 && !s.concentration)
+            .key,
         };
         const count = await db.character.count();
         await request(
@@ -170,6 +184,17 @@ test(
           where: { id: created.id },
         });
         assert.equal(saved.intelligence, 17);
+        assert.equal(saved.gameData.currency.copper, 800);
+        assert.equal(saved.gameData.inventory.length, 5);
+        assert.equal(saved.gameData.spells.length, 3);
+        assert.ok(
+          saved.gameData.spells.every((s) => s.grantedBy === "magicInitiate"),
+        );
+        assert.deepEqual(saved.gameData.creation.pending, []);
+        assert.equal(
+          saved.gameData.creation.background.toolProficiencies[0].key,
+          "calligrapher",
+        );
         assert.deepEqual(saved.gameData.creation.background.skillGrants, [
           "arcana",
           "history",
@@ -265,6 +290,96 @@ test(
         assert.equal(arcana.backgroundSource, "Sabio");
         assert.equal(configured.state.hp.current, 2);
         assert.equal(configured.state.slotsSpent[1], 1);
+        const spending = {
+          commandId: randomUUID(),
+          expectedVersion: configured.stateVersion,
+          type: "money",
+          data: { deltaCopper: -125 },
+        };
+        const paid = await request(
+          "player",
+          "POST",
+          `/characters/${created.id}/commands`,
+          spending,
+        );
+        assert.equal(paid.sheet.state.currency.copper, 675);
+        assert.deepEqual(
+          await request(
+            "player",
+            "POST",
+            `/characters/${created.id}/commands`,
+            spending,
+          ),
+          paid,
+        );
+        const reread = await request(
+          "player",
+          "GET",
+          `/characters/${created.id}/sheet`,
+        );
+        assert.equal(reread.state.currency.copper, 675);
+        assert.equal(reread.state.inventory.length, 5);
+        const spell = reread.state.spells.find((s) => s.level === 1);
+        const casting = {
+          commandId: randomUUID(),
+          expectedVersion: reread.stateVersion,
+          type: "cast",
+          data: { id: spell.id, slotLevel: 0, originFeatUse: true },
+        };
+        const cast = await request(
+          "player",
+          "POST",
+          `/characters/${created.id}/commands`,
+          casting,
+        );
+        assert.equal(cast.sheet.derived.originFeat.freeCastRemaining, 0);
+        assert.equal(cast.sheet.state.slotsSpent[1], 1);
+        assert.deepEqual(
+          await request(
+            "player",
+            "POST",
+            `/characters/${created.id}/commands`,
+            casting,
+          ),
+          cast,
+        );
+        await request(
+          "player",
+          "POST",
+          `/characters/${created.id}/commands`,
+          {
+            ...casting,
+            commandId: randomUUID(),
+            expectedVersion: cast.sheet.stateVersion,
+          },
+          422,
+        );
+        const rested = await request(
+          "player",
+          "POST",
+          `/characters/${created.id}/commands`,
+          {
+            commandId: randomUUID(),
+            expectedVersion: cast.sheet.stateVersion,
+            type: "rest",
+            data: { kind: "long", hours: 8, worldHour: 24 },
+          },
+        );
+        assert.equal(rested.sheet.derived.originFeat.freeCastRemaining, 1);
+        assert.equal(rested.sheet.state.currency.copper, 675);
+        assert.equal(rested.sheet.state.inventory.length, 5);
+
+        await request(
+          "outsider",
+          "POST",
+          `/characters/${created.id}/commands`,
+          {
+            ...spending,
+            commandId: randomUUID(),
+            expectedVersion: reread.stateVersion,
+          },
+          404,
+        );
 
         await request("player", "DELETE", `/characters/${created.id}`);
       },

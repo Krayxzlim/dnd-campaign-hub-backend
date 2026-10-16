@@ -56,3 +56,7 @@ La aceptación completa exige los catorce escenarios del documento original. Est
 ## Incremento posterior: trasfondo y procedencia
 
 La entrega documentada en [background-decisions.md](background-decisions.md) agrega elección y aumentos del trasfondo de nivel 1, validación al guardar y un registro permanente separado del estado consumible. Las fichas anteriores conservan sus valores y no reciben una historia inventada. RF-03 y RF-07 siguen parcialmente cubiertos: dote de origen, competencias, herramientas, equipo, mejoras por nivel y correcciones todavía requieren implementación.
+
+## Ampliación: beneficios de trasfondo
+
+Las altas nuevas pueden resolver el paquete inicial o 50 po, herramientas y las dotes Alerta, Atacante salvaje e Iniciado en la magia para los cuatro trasfondos SRD disponibles. El inventario y saldo se crean una sola vez; los comandos de gasto y uso de dotes conservan versión e idempotencia. Esto amplía la cobertura de creación y procedencia, pero no completa los requisitos de especie/clase, progresión ni reconstrucción de personajes de nivel superior. Véase `background-decisions.md` para contratos, compatibilidad y límites de automatización.

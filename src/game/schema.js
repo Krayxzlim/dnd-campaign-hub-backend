@@ -109,6 +109,26 @@ const config = z
   })
   .strict();
 const operation = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("beginTurn"), data: z.object({}).strict() }),
+  z.object({
+    type: z.literal("savageAttacker"),
+    data: z
+      .object({ weaponId: id, critical: z.boolean().default(false) })
+      .strict(),
+  }),
+  z.object({
+    type: z.literal("money"),
+    data: z
+      .object({
+        deltaCopper: z
+          .number()
+          .int()
+          .min(-1000000000)
+          .max(1000000000)
+          .refine((n) => n !== 0),
+      })
+      .strict(),
+  }),
   z.object({ type: z.literal("configure"), data: config }),
   z.object({
     type: z.literal("hp"),
@@ -124,7 +144,15 @@ const operation = z.discriminatedUnion("type", [
     type: z.literal("roll"),
     data: z
       .object({
-        kind: z.enum(["free", "save", "skill", "attack", "death"]),
+        kind: z.enum([
+          "free",
+          "save",
+          "skill",
+          "tool",
+          "initiative",
+          "attack",
+          "death",
+        ]),
         key: z.string().max(80).optional(),
         sides: z
           .union([
@@ -177,6 +205,7 @@ const operation = z.discriminatedUnion("type", [
       .object({
         id,
         slotLevel: int(9),
+        originFeatUse: z.boolean().default(false),
         pool: z.enum(["standard", "pact"]).default("standard"),
         ritual: z.boolean().default(false),
         replaceConcentration: z.boolean().default(false),
