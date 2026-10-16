@@ -51,6 +51,7 @@ const schema = base.schema
   .extend({
     version: z.literal(1),
     ruleset: z.literal("srd-2024"),
+    classSkills: z.array(z.string().max(40)).max(4).optional(),
     speciesKey: z.string().min(1).max(100),
     background: z
       .object({
@@ -72,7 +73,14 @@ const schema = base.schema
   .strict();
 function preview(input) {
   const data = schema.parse(input);
-  const { version, ruleset, speciesKey, background, ...baseInput } = data;
+  const {
+    version,
+    ruleset,
+    speciesKey,
+    background,
+    classSkills,
+    ...baseInput
+  } = data;
   const validated = base.preview(baseInput);
   if (
     validated.pointsRemaining !== undefined &&
@@ -101,6 +109,10 @@ function preview(input) {
   );
   if (Object.values(finalScores).some((n) => n > 20))
     fail(422, "El trasfondo no puede elevar un atributo por encima de 20.");
+  const classDecision = require("./class-skills").decide(
+    data.classKey,
+    classSkills,
+  );
   const supplies = loadout.decide(background.key, background);
   const originFeat = feats.decide(background.key, background.originFeatChoice);
   return {
@@ -118,6 +130,7 @@ function preview(input) {
     decision: {
       ...data,
       finalScores,
+      ...(classDecision ? { classDecision } : {}),
       background: {
         ...background,
         ...supplies,

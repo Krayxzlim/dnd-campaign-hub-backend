@@ -1,0 +1,170 @@
+{
+  "barbarian": {
+    "count": 2,
+    "options": [
+      "animalHandling",
+      "athletics",
+      "intimidation",
+      "nature",
+      "perception",
+      "survival"
+    ],
+    "source": "srd-2024_barbarian_core-traits"
+  },
+  "bard": {
+    "count": 3,
+    "options": [
+      "athletics",
+      "acrobatics",
+      "sleightOfHand",
+      "stealth",
+      "arcana",
+      "history",
+      "investigation",
+      "nature",
+      "religion",
+      "animalHandling",
+      "insight",
+      "medicine",
+      "perception",
+      "survival",
+      "deception",
+      "intimidation",
+      "performance",
+      "persuasion"
+    ],
+    "source": "srd-2024_bard_core-traits"
+  },
+  "cleric": {
+    "count": 2,
+    "options": [
+      "history",
+      "insight",
+      "medicine",
+      "persuasion",
+      "religion"
+    ],
+    "source": "srd-2024_cleric_core-traits"
+  },
+  "druid": {
+    "count": 2,
+    "options": [
+      "animalHandling",
+      "arcana",
+      "insight",
+      "medicine",
+      "nature",
+      "perception",
+      "religion",
+      "survival"
+    ],
+    "source": "srd-2024_druid_core-traits"
+  },
+  "fighter": {
+    "count": 2,
+    "options": [
+      "acrobatics",
+      "animalHandling",
+      "athletics",
+      "history",
+      "insight",
+      "intimidation",
+      "persuasion",
+      "perception",
+      "survival"
+    ],
+    "source": "srd-2024_fighter_core-traits"
+  },
+  "monk": {
+    "count": 2,
+    "options": [
+      "acrobatics",
+      "athletics",
+      "history",
+      "insight",
+      "religion",
+      "stealth"
+    ],
+    "source": "srd-2024_monk_core-traits"
+  },
+  "paladin": {
+    "count": 2,
+    "options": [
+      "athletics",
+      "insight",
+      "intimidation",
+      "medicine",
+      "persuasion",
+      "religion"
+    ],
+    "source": "srd-2024_paladin_core-traits"
+  },
+  "ranger": {
+    "count": 3,
+    "options": [
+      "animalHandling",
+      "athletics",
+      "insight",
+      "investigation",
+      "nature",
+      "perception",
+      "stealth",
+      "survival"
+    ],
+    "source": "srd-2024_ranger_core-traits"
+  },
+  "rogue": {
+    "count": 4,
+    "options": [
+      "acrobatics",
+      "athletics",
+      "deception",
+      "insight",
+      "intimidation",
+      "investigation",
+      "perception",
+      "persuasion",
+      "sleightOfHand",
+      "stealth"
+    ],
+    "source": "srd-2024_rogue_core-traits"
+  },
+  "sorcerer": {
+    "count": 2,
+    "options": [
+      "arcana",
+      "deception",
+      "insight",
+      "intimidation",
+      "persuasion",
+      "religion"
+    ],
+    "source": "srd-2024_sorcerer_core-traits"
+  },
+  "warlock": {
+    "count": 2,
+    "options": [
+      "arcana",
+      "deception",
+      "history",
+      "intimidation",
+      "investigation",
+      "nature",
+      "religion"
+    ],
+    "source": "srd-2024_warlock_core-traits"
+  },
+  "wizard": {
+    "count": 2,
+    "options": [
+      "arcana",
+      "history",
+      "insight",
+      "investigation",
+      "medicine",
+      "nature",
+      "religion"
+    ],
+    "source": "srd-2024_wizard_core-traits"
+  }
+}

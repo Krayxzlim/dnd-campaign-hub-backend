@@ -88,6 +88,7 @@ function catalog() {
       const [description, primary, order] = suggestions[key];
       return {
         key,
+        skillChoices: require("./class-skills").definition(key),
         name: cl.label,
         description,
         primaryAbilities: primary.map((i) => ABILITIES[i]),

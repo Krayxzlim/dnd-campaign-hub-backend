@@ -64,3 +64,11 @@ Acólito y Sabio ofrecen Iniciado en la magia (clérigo y mago respectivamente).
 El lanzamiento de nivel 1 con `originFeatUse: true` consume el uso gratuito, sin consumir espacios. Un descanso largo válido lo recupera; leer, descansar poco o interrumpir el descanso no lo recupera. Se puede lanzar con espacios disponibles mediante el flujo normal. Los trucos no consumen ese uso. La característica de lanzamiento de la dote se calcula independientemente de la clase. Los conjuros conservan la descripción de la fuente en inglés; sus efectos narrativos y objetivos se resuelven en la mesa.
 
 Clientes anteriores pueden omitir estas elecciones: la respuesta conserva pendientes explícitos y no reconstruye concesiones para fichas antiguas. Completar estos beneficios de trasfondo no completa automáticamente las elecciones de especie, clase, competencias de armas ni PV.
+
+## Competencias iniciales de clase
+
+`classSkillsVersion: 1` y `classes[].skillChoices` anuncian el cupo y las opciones de las doce clases SRD. `skills` ofrece etiquetas en español. La decisión `creation.classSkills` es opcional por compatibilidad; si aparece, debe contener exactamente el cupo de claves distintas pertenecientes a esa clase. La validación del preview y del alta es la misma. Se guarda una copia canónica con fuente en `creation.classDecision.skillGrants`.
+
+La ficha expone `classRank` y `classSource`. El rango efectivo es el máximo entre configuración, trasfondo y clase; dos competencias no conceden pericia. Configurar otras opciones no borra las concesiones. Las fichas anteriores conservan su comportamiento. La app muestra este paso cuando se eligió trasfondo (el contrato versionado actual requiere uno); diferirlo mantiene el flujo anterior.
+
+Esta entrega no implementa sustituciones por duplicación entre fuentes ni pericia de clase, salvaciones, equipo de clase, conjuros de clase o sus otros rasgos. La selección duplicada con trasfondo se informa como un único bono. El catálogo deriva de las tablas Core Traits del snapshot `classes-2024.json`; se normalizan únicamente los cortes tipográficos «Na ture» e «In sight». Los textos y licencia SRD se conservan en la atribución existente.

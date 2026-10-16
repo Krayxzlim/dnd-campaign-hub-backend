@@ -100,6 +100,7 @@ test(
           ruleset: "srd-2024",
           speciesKey: species.key,
           classKey: "wizard",
+          classSkills: ["arcana", "investigation"],
           method: "standard",
           baseScores: {
             strength: 8,
@@ -220,6 +221,14 @@ test(
           "GET",
           `/characters/${created.id}/sheet`,
         );
+        assert.equal(
+          sheet.derived.skills.find((s) => s.key === "investigation").classRank,
+          1,
+        );
+        assert.deepEqual(saved.gameData.creation.classDecision.skillGrants, [
+          "arcana",
+          "investigation",
+        ]);
         assert.equal(sheet.derived.abilities[3].score, 17);
         assert.equal(
           sheet.derived.skills.find((s) => s.key === "arcana").modifier,
@@ -287,6 +296,11 @@ test(
         );
         assert.equal(arcana.rank, 1);
         assert.equal(arcana.configuredRank, 0);
+        assert.equal(arcana.classRank, 1);
+        assert.equal(
+          configured.derived.skills.find((s) => s.key === "investigation").rank,
+          1,
+        );
         assert.equal(arcana.backgroundSource, "Sabio");
         assert.equal(configured.state.hp.current, 2);
         assert.equal(configured.state.slotsSpent[1], 1);
