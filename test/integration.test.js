@@ -124,6 +124,48 @@ test(
             },
           },
         };
+        assert.equal(catalog.rogueExpertiseVersion, 1);
+        const rogueCreation = {
+          ...creation,
+          classKey: "rogue",
+          classSkills: ["stealth", "investigation", "perception", "acrobatics"],
+          expertise: ["stealth", "arcana"],
+        };
+        const roguePreview = await request(
+          "player",
+          "POST",
+          "/catalog/creation/background-preview",
+          rogueCreation,
+        );
+        const rogue = await request("player", "POST", "/characters", {
+          name: "Experto",
+          race: species.name,
+          characterClass: "Pícaro",
+          level: 1,
+          alignment: "Neutral",
+          ...roguePreview.finalScores,
+          creation: rogueCreation,
+        });
+        const rogueSheet = await request(
+          "player",
+          "GET",
+          `/characters/${rogue.id}/sheet`,
+        );
+        assert.equal(
+          rogueSheet.derived.skills.find((s) => s.key === "arcana").rank,
+          2,
+        );
+        assert.deepEqual(
+          rogueSheet.state.creation.classDecision.expertiseGrants,
+          ["stealth", "arcana"],
+        );
+        await request(
+          "player",
+          "POST",
+          "/catalog/creation/background-preview",
+          { ...rogueCreation, expertise: ["stealth", "athletics"] },
+          422,
+        );
         const wizardSpells = catalog.originSpells.filter((s) =>
           s.lists.includes("wizard"),
         );

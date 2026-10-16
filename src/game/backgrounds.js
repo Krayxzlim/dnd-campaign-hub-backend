@@ -51,6 +51,7 @@ const schema = base.schema
   .extend({
     version: z.literal(1),
     ruleset: z.literal("srd-2024"),
+    expertise: z.array(z.string().max(40)).length(2).optional(),
     classSkills: z.array(z.string().max(40)).max(4).optional(),
     speciesKey: z.string().min(1).max(100),
     background: z
@@ -79,6 +80,7 @@ function preview(input) {
     speciesKey,
     background,
     classSkills,
+    expertise,
     ...baseInput
   } = data;
   const validated = base.preview(baseInput);
@@ -113,6 +115,25 @@ function preview(input) {
     data.classKey,
     classSkills,
   );
+  if (expertise !== undefined) {
+    const proficient = new Set([
+      ...(classDecision?.skillGrants || []),
+      ...selected.skillGrants,
+    ]);
+    if (
+      data.classKey !== "rogue" ||
+      !classDecision ||
+      new Set(expertise).size !== 2 ||
+      expertise.some((key) => !proficient.has(key))
+    )
+      fail(
+        422,
+        "El pícaro debe elegir dos habilidades distintas con competencia para su pericia.",
+      );
+    classDecision.expertiseGrants = [...expertise];
+    classDecision.expertiseSource =
+      "Open5e · SRD 2024 · srd-2024_rogue_expertise";
+  }
   const supplies = loadout.decide(background.key, background);
   const originFeat = feats.decide(background.key, background.originFeatChoice);
   return {
