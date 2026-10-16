@@ -209,9 +209,11 @@ function sheet(c) {
   const skills = SKILLS.map(([key, label, i]) => {
     const configuredRank = s.skills[key] || 0;
     const backgroundRank = background?.skillGrants?.includes(key) ? 1 : 0;
-    const classRank = s.creation?.classDecision?.skillGrants?.includes(key)
-      ? 1
-      : 0;
+    const classRank = s.creation?.classDecision?.expertiseGrants?.includes(key)
+      ? 2
+      : s.creation?.classDecision?.skillGrants?.includes(key)
+        ? 1
+        : 0;
     const rank = Math.max(configuredRank, backgroundRank, classRank);
     return {
       key,

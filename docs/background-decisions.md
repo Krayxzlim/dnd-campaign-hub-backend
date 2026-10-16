@@ -82,3 +82,9 @@ Estos PV no incluyen aumentos de especie, dotes u otras fuentes todavía no impl
 Las salvaciones efectivas son la unión de las concedidas por clase y las configuradas, sin duplicar competencia. El cliente identifica y protege las concedidas; configurar otras opciones no las borra. No se migran personajes anteriores ni altas sin `creation`.
 
 La verificación utiliza las tablas `CORE_TRAITS_TABLE` del snapshot SRD, no su campo resumido `saving_throws`: este último discrepa para guerrero y monje. Las tablas indican Fuerza/Constitución para guerrero y Fuerza/Destreza para monje. El snapshot original se conserva sin alteraciones.
+
+## Pericia inicial del pícaro
+
+`rogueExpertiseVersion: 1` anuncia la elección de nivel 1. `creation.expertise` acepta exactamente dos claves distintas de habilidades concedidas por la clase o el trasfondo; requiere clase pícaro y `classSkills` válido. Se conserva como `classDecision.expertiseGrants`, con fuente `srd-2024_rogue_expertise` del snapshot de clases SRD. No admite habilidades ajenas, herramientas ni elecciones de otras clases.
+
+El rango de clase pasa a 2 para esas habilidades y se combina por máximo con las otras fuentes. Se duplica únicamente el bono de competencia, una sola vez. Consultas, tiradas y configuración no borran la elección ni aplican otro multiplicador. Omitir el campo conserva compatibilidad y no concede pericia retroactiva. Pericias de niveles posteriores, otras clases y reemplazos siguen pendientes.

@@ -68,3 +68,7 @@ Las doce clases SRD permiten seleccionar sus habilidades iniciales con cupo y li
 ## Ampliación: base de clase de nivel 1
 
 Las altas versionadas inicializan PV base con dado máximo y Constitución final y registran salvaciones de clase. Leer no restaura recursos consumidos y las concesiones no desaparecen con configuración genérica. RF-12 sigue parcial: faltan aumentos de PV por otras fuentes, reconstrucción y progresión por nivel. Las fichas históricas no se recalculan.
+
+## Ampliación: pericia inicial del pícaro
+
+La creación guiada permite dos pericias entre las habilidades concedidas por clase y trasfondo y guarda su fuente. La API valida cupo, unicidad, clase y competencia previa. RF-10 continúa parcial para los demás rasgos y decisiones de clase; este bloque no implementa progresión ni concede pericias de niveles posteriores.

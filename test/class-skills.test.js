@@ -54,3 +54,62 @@ test("Creation preserves class skill provenance and does not duplicate backgroun
     backgrounds.preview({ ...input, classSkills: ["athletics", "stealth"] }),
   );
 });
+
+test("Rogue expertise requires two distinct granted skills and doubles proficiency only once", () => {
+  const values = (n) =>
+    Object.fromEntries(rules.ABILITIES.map((k, i) => [k, n[i]]));
+  const input = {
+    version: 1,
+    ruleset: "srd-2024",
+    speciesKey: require("../src/game/data/species-2024.json").results.find(
+      (s) => !s.is_subspecies,
+    ).key,
+    classKey: "rogue",
+    method: "standard",
+    baseScores: values([8, 14, 13, 15, 12, 10]),
+    classSkills: ["stealth", "investigation", "perception", "acrobatics"],
+    expertise: ["stealth", "arcana"],
+    background: { key: "srd-2024_sage", increases: values([0, 0, 1, 2, 0, 0]) },
+  };
+  const p = backgrounds.preview(input);
+  assert.deepEqual(p.decision.classDecision.expertiseGrants, [
+    "stealth",
+    "arcana",
+  ]);
+  const c = { ...p.finalScores, characterClass: "Pícaro", level: 1 };
+  c.gameData = { ...rules.initial(c), creation: p.decision, configured: true };
+  const rank = (k) => rules.sheet(c).derived.skills.find((s) => s.key === k);
+  assert.equal(rank("stealth").modifier, 6);
+  assert.equal(rank("arcana").modifier, 7);
+  c.gameData.skills.arcana = 2;
+  assert.equal(rank("arcana").modifier, 7);
+  c.gameData.skills = {};
+  assert.equal(rank("arcana").rank, 2);
+  assert.equal(
+    rules.apply(
+      c,
+      { type: "roll", data: { kind: "skill", key: "arcana" } },
+      () => 10,
+    ).result.total,
+    17,
+  );
+  for (const expertise of [
+    ["stealth"],
+    ["stealth", "stealth"],
+    ["stealth", "athletics"],
+    ["stealth", "unknown"],
+  ])
+    assert.throws(() => backgrounds.preview({ ...input, expertise }));
+  assert.throws(() =>
+    backgrounds.preview({ ...input, classSkills: undefined }),
+  );
+  assert.throws(() =>
+    backgrounds.preview({
+      ...input,
+      classKey: "wizard",
+      classSkills: ["arcana", "history"],
+    }),
+  );
+  const legacy = backgrounds.preview({ ...input, expertise: undefined });
+  assert.equal(legacy.decision.classDecision.expertiseGrants, undefined);
+});
