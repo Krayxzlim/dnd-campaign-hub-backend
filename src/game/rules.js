@@ -176,6 +176,11 @@ function sheet(c) {
     pb = 2 + Math.floor((total - 1) / 4),
     mods = ABILITIES.map((k) => abilityMod(c, s, k)),
     penalty = s.exhaustion * 2;
+  const classSaveGrants = s.creation?.classBasics?.saveGrants || [];
+  const saveProficiencies = new Set([
+    ...s.saveProficiencies,
+    ...classSaveGrants,
+  ]);
   const saves = ABILITIES.map((key, i) => ({
     key,
     label: LABELS[i],
@@ -192,8 +197,12 @@ function sheet(c) {
           },
         }
       : {}),
-    modifier: mods[i] + (s.saveProficiencies.includes(key) ? pb : 0) - penalty,
-    proficient: s.saveProficiencies.includes(key),
+    modifier: mods[i] + (saveProficiencies.has(key) ? pb : 0) - penalty,
+    proficient: saveProficiencies.has(key),
+    classProficient: classSaveGrants.includes(key),
+    ...(classSaveGrants.includes(key)
+      ? { classSource: CLASSES[s.creation.classKey].label }
+      : {}),
   }));
   const background = s.creation?.background;
   const originFeat = background?.originFeat;

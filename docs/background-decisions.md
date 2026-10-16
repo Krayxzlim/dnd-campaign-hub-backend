@@ -72,3 +72,13 @@ Clientes anteriores pueden omitir estas elecciones: la respuesta conserva pendie
 La ficha expone `classRank` y `classSource`. El rango efectivo es el máximo entre configuración, trasfondo y clase; dos competencias no conceden pericia. Configurar otras opciones no borra las concesiones. Las fichas anteriores conservan su comportamiento. La app muestra este paso cuando se eligió trasfondo (el contrato versionado actual requiere uno); diferirlo mantiene el flujo anterior.
 
 Esta entrega no implementa sustituciones por duplicación entre fuentes ni pericia de clase, salvaciones, equipo de clase, conjuros de clase o sus otros rasgos. La selección duplicada con trasfondo se informa como un único bono. El catálogo deriva de las tablas Core Traits del snapshot `classes-2024.json`; se normalizan únicamente los cortes tipográficos «Na ture» e «In sight». Los textos y licencia SRD se conservan en la atribución existente.
+
+## PV base y salvaciones de nivel 1
+
+Las nuevas creaciones versionadas registran `classBasics`: dado de clase, modificador de Constitución final, PV base, salvaciones concedidas y fuente. El catálogo anuncia `classBasicsVersion: 1`. Los PV base son el máximo del dado más Constitución (mínimo 1); se inicializan una sola vez en la misma transacción del alta, con PV temporales cero. Consultar la ficha no restaura PV, espacios ni otros recursos.
+
+Estos PV no incluyen aumentos de especie, dotes u otras fuentes todavía no implementadas. La ficha permanece sin configurar para que se revisen esas elecciones. La configuración explícita de PV sigue disponible; `classBasics` conserva el origen inicial, no reemplaza el máximo actual ni implica una reconstrucción por nivel.
+
+Las salvaciones efectivas son la unión de las concedidas por clase y las configuradas, sin duplicar competencia. El cliente identifica y protege las concedidas; configurar otras opciones no las borra. No se migran personajes anteriores ni altas sin `creation`.
+
+La verificación utiliza las tablas `CORE_TRAITS_TABLE` del snapshot SRD, no su campo resumido `saving_throws`: este último discrepa para guerrero y monje. Las tablas indican Fuerza/Constitución para guerrero y Fuerza/Destreza para monje. El snapshot original se conserva sin alteraciones.

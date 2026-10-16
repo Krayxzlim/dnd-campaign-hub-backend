@@ -130,6 +130,7 @@ function preview(input) {
     decision: {
       ...data,
       finalScores,
+      classBasics: require("./class-basics").decide(data.classKey, finalScores),
       ...(classDecision ? { classDecision } : {}),
       background: {
         ...background,
