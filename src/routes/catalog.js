@@ -57,6 +57,11 @@ module.exports = ({ auth }) => {
         backgroundSkillsVersion: 1,
         backgroundLoadoutVersion: 1,
         originFeatsVersion: 1,
+        classSkillsVersion: 1,
+        skills: require("../game/rules").SKILLS.map(([key, name]) => ({
+          key,
+          name,
+        })),
         originSpells: require("../game/origin-feats").catalog(),
         backgrounds: require("../game/backgrounds").catalog(),
       }),

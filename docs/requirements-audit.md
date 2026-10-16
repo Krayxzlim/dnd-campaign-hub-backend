@@ -60,3 +60,7 @@ La entrega documentada en [background-decisions.md](background-decisions.md) agr
 ## Ampliación: beneficios de trasfondo
 
 Las altas nuevas pueden resolver el paquete inicial o 50 po, herramientas y las dotes Alerta, Atacante salvaje e Iniciado en la magia para los cuatro trasfondos SRD disponibles. El inventario y saldo se crean una sola vez; los comandos de gasto y uso de dotes conservan versión e idempotencia. Esto amplía la cobertura de creación y procedencia, pero no completa los requisitos de especie/clase, progresión ni reconstrucción de personajes de nivel superior. Véase `background-decisions.md` para contratos, compatibilidad y límites de automatización.
+
+## Ampliación: competencias de clase
+
+Las doce clases SRD permiten seleccionar sus habilidades iniciales con cupo y lista validados por la API. Se conserva la procedencia y se combina por rango, sin duplicar bonos del trasfondo. RF-10 continúa parcial: faltan pericia, salvaciones, equipo, conjuros y las demás decisiones de rasgos. Esta entrega no modifica progresión ni aplica concesiones retroactivas.
