@@ -1,7 +1,7 @@
 name: API verification
 on:
   push:
-    branches: [main, 'feat/**']
+    branches: [main, testing, 'feat/**']
   pull_request:
 permissions:
   contents: read
