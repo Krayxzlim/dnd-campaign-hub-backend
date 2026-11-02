@@ -253,9 +253,27 @@ function sheet(c) {
   )
     ? 2
     : 0;
+  const defenseClass = s.creation?.startingDefense ? s.creation.classKey : null;
+  const hasShield = Math.max(a.shield, shield) > 0;
+  const unarmoredAbility =
+    !armor &&
+    (defenseClass === "barbarian" || (defenseClass === "monk" && !hasShield))
+      ? defenseClass === "barbarian"
+        ? "constitution"
+        : "wisdom"
+      : null;
+  // Different AC calculations do not stack. Keep a configured base formula available.
+  const ordinaryBase = a.base + (a.dexterity ? Math.min(mods[1], a.dexCap) : 0);
+  const defenseBase = unarmoredAbility
+    ? 10 + mods[1] + mods[ABILITIES.indexOf(unarmoredAbility)]
+    : null;
+  const armorSpeedPenalty =
+    armor?.armor?.strength &&
+    c.strength - (s.abilityReductions?.strength || 0) < armor.armor.strength
+      ? 10
+      : 0;
   const ac =
-    a.base +
-    (a.dexterity ? Math.min(mods[1], a.dexCap) : 0) +
+    Math.max(ordinaryBase, defenseBase ?? ordinaryBase) +
     Math.max(a.shield, shield) +
     a.bonus;
   const spellcasting = s.classes
@@ -350,6 +368,22 @@ function sheet(c) {
       saves,
       skills,
       ac: s.configured ? ac : null,
+      ...(defenseClass
+        ? {
+            acExplanation: `${defenseBase !== null && defenseBase > ordinaryBase ? `10 + Destreza + ${unarmoredAbility === "constitution" ? "Constitución" : "Sabiduría"}` : armor ? armor.name : "10 + Destreza"}${Math.max(a.shield, shield) ? " + escudo" : ""}`,
+            acBreakdown: {
+              base: Math.max(ordinaryBase, defenseBase ?? ordinaryBase),
+              shield: Math.max(a.shield, shield),
+              bonus: a.bonus,
+              formula:
+                defenseBase !== null && defenseBase > ordinaryBase
+                  ? `10 + Destreza + ${unarmoredAbility === "constitution" ? "Constitución" : "Sabiduría"}`
+                  : armor
+                    ? armor.name
+                    : "Sin armadura",
+            },
+          }
+        : {}),
       initiative: mods[1] + (originFeat?.key === "alert" ? pb : 0) - penalty,
       originFeat: originFeat
         ? {
@@ -367,7 +401,8 @@ function sheet(c) {
               s.savageAttackerTurn !== s.combatTurn,
           }
         : null,
-      speed: Math.max(0, s.speed - s.exhaustion * 5),
+      speed: Math.max(0, s.speed - s.exhaustion * 5 - armorSpeedPenalty),
+      armorSpeedPenalty,
       passivePerception:
         10 + skills.find((x) => x.key === "perception").modifier,
       slots,

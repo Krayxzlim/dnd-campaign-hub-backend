@@ -51,6 +51,10 @@ const schema = base.schema
   .extend({
     version: z.literal(1),
     ruleset: z.literal("srd-2024"),
+    startingDefense: z
+      .object({ armorKey: z.string().min(1).max(40), shield: z.boolean() })
+      .strict()
+      .optional(),
     expertise: z.array(z.string().max(40)).length(2).optional(),
     classSkills: z.array(z.string().max(40)).max(4).optional(),
     speciesKey: z.string().min(1).max(100),
@@ -81,6 +85,7 @@ function preview(input) {
     background,
     classSkills,
     expertise,
+    startingDefense,
     ...baseInput
   } = data;
   const validated = base.preview(baseInput);
@@ -136,7 +141,7 @@ function preview(input) {
   }
   const supplies = loadout.decide(background.key, background);
   const originFeat = feats.decide(background.key, background.originFeatChoice);
-  return {
+  const result = {
     scope: "background-abilities",
     finalScores,
     modifiers: Object.fromEntries(
@@ -170,6 +175,66 @@ function preview(input) {
     speciesName: selectedSpecies.name,
     className: CLASSES[data.classKey].label,
   };
+  if (startingDefense) {
+    if (
+      !classDecision ||
+      result.decision.pending.length ||
+      (data.classKey === "rogue" && !classDecision.expertiseGrants)
+    )
+      fail(
+        422,
+        "Completá las habilidades, la pericia y las elecciones del trasfondo antes de confirmar la protección inicial.",
+      );
+    result.decision.startingDefense = require("./starting-defense").decide(
+      startingDefense,
+      {
+        classKey: data.classKey,
+        speciesKey,
+        finalScores,
+        background: result.decision.background,
+        classDecision,
+      },
+    );
+    const character = {
+      ...finalScores,
+      level: 1,
+      characterClass: result.className,
+      race: result.speciesName,
+    };
+    character.gameData = require("./creation-state")(
+      character,
+      result.decision,
+      { preview: true },
+    );
+    const sheet = require("./rules").sheet(character);
+    const defense = result.decision.startingDefense;
+    const armor = require("./starting-defense")
+      .catalog()
+      .armors.find((a) => a.key === defense.armorKey);
+    result.startingStats = {
+      hp: sheet.state.hp.max,
+      ac: sheet.derived.ac,
+      initiative: sheet.derived.initiative,
+      speed: sheet.derived.speed,
+      proficiency: sheet.derived.proficiency,
+      armorLabel: armor.name,
+      shield: defense.shield,
+      copper: sheet.state.currency.copper,
+      hpExplanation:
+        "PV de clase y Constitución: " +
+        defense.hp.base +
+        (defense.hp.speciesBonus
+          ? " + " + defense.hp.speciesBonus + " por especie"
+          : ""),
+      acExplanation:
+        sheet.derived.acExplanation ||
+        "Según la protección equipada y tus atributos.",
+      warnings: [
+        "Las estadísticas y los recursos iniciales quedan listos. Los conjuros de clase, armas y otros rasgos que todavía no se eligen en este asistente deben completarse aparte.",
+      ],
+    };
+  }
+  return result;
 }
 function forCharacter(input, character) {
   const result = preview(input);
