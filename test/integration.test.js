@@ -1111,7 +1111,10 @@ test(
           ),
           first,
         );
-        assert.equal(await db.characterCommand.count(), 1);
+        assert.equal(
+          await db.characterCommand.count({ where: { characterId: character.id } }),
+          1,
+        );
         await request(
           "player",
           "POST",
