@@ -6,6 +6,7 @@ const id = z.string().uuid(),
 const armor = z
   .object({
     base: int(30),
+    strength: z.number().int().min(0).max(30).optional(),
     dexterity: z.boolean(),
     dexCap: z.number().int().min(0).max(99),
     shield: int(5),

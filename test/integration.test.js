@@ -87,6 +87,139 @@ test(
       return data;
     }
     await t.test(
+      "La creación guiada deja la ficha lista y coincide con la vista previa",
+      async () => {
+        const catalog = await request("player", "GET", "/catalog/creation");
+        assert.equal(catalog.startingDefenseVersion, 1);
+        const creation = {
+          version: 1,
+          ruleset: "srd-2024",
+          speciesKey: "srd-2024_human",
+          classKey: "fighter",
+          method: "standard",
+          baseScores: {
+            strength: 15,
+            dexterity: 14,
+            constitution: 13,
+            intelligence: 12,
+            wisdom: 10,
+            charisma: 8,
+          },
+          classSkills: ["athletics", "perception"],
+          background: {
+            key: "srd-2024_soldier",
+            equipmentOption: "B",
+            toolChoice: "cards",
+            increases: {
+              strength: 2,
+              dexterity: 0,
+              constitution: 1,
+              intelligence: 0,
+              wisdom: 0,
+              charisma: 0,
+            },
+          },
+          startingDefense: { armorKey: "chainMail", shield: true },
+        };
+        const count = await db.character.count();
+        const preview = await request(
+          "player",
+          "POST",
+          "/catalog/creation/background-preview",
+          creation,
+        );
+        assert.deepEqual(
+          await request(
+            "player",
+            "POST",
+            "/catalog/creation/background-preview",
+            creation,
+          ),
+          preview,
+        );
+        assert.equal(await db.character.count(), count);
+        assert.equal(preview.startingStats.hp, 12);
+        assert.equal(preview.startingStats.ac, 18);
+        assert.equal(preview.startingStats.initiative, 2);
+        assert.equal(preview.startingStats.copper, 12000);
+        await request(
+          "player",
+          "POST",
+          "/catalog/creation/background-preview",
+          { ...creation, startingDefense: { armorKey: "plate", shield: true } },
+          422,
+        );
+        await request(
+          "player",
+          "POST",
+          "/catalog/creation/background-preview",
+          { ...creation, classSkills: undefined },
+          422,
+        );
+        const created = await request(
+          "player",
+          "POST",
+          "/characters",
+          {
+            name: "Ficha lista",
+            race: preview.speciesName,
+            characterClass: "Guerrero",
+            level: 1,
+            ...preview.finalScores,
+            creation,
+          },
+          201,
+        );
+        const sheet = await request(
+          "player",
+          "GET",
+          `/characters/${created.id}/sheet`,
+        );
+        assert.equal(sheet.state.configured, true);
+        assert.equal(sheet.state.hp.max, preview.startingStats.hp);
+        assert.equal(sheet.derived.ac, preview.startingStats.ac);
+        assert.equal(sheet.derived.speed, preview.startingStats.speed);
+        assert.equal(sheet.state.currency.copper, preview.startingStats.copper);
+        assert.equal(sheet.state.inventory.filter((i) => i.equipped).length, 2);
+        const damage = {
+          commandId: randomUUID(),
+          expectedVersion: sheet.stateVersion,
+          type: "hp",
+          data: { mode: "damage", amount: 3 },
+        };
+        const result = await request(
+          "player",
+          "POST",
+          `/characters/${created.id}/commands`,
+          damage,
+        );
+        assert.deepEqual(
+          await request(
+            "player",
+            "POST",
+            `/characters/${created.id}/commands`,
+            damage,
+          ),
+          result,
+        );
+        const reread = await request(
+          "player",
+          "GET",
+          `/characters/${created.id}/sheet`,
+        );
+        assert.equal(reread.state.hp.current, 9);
+        assert.equal(reread.state.currency.copper, 12000);
+        await request(
+          "outsider",
+          "POST",
+          `/characters/${created.id}/commands`,
+          { ...damage, commandId: randomUUID() },
+          404,
+        );
+      },
+    );
+
+    await t.test(
       "Background decisions persist atomically and preserve legacy creation",
       async () => {
         const species = (await request("player", "GET", "/catalog/species"))
@@ -994,7 +1127,10 @@ test(
           ),
           first,
         );
-        assert.equal(await db.characterCommand.count(), 1);
+        assert.equal(
+          await db.characterCommand.count({ where: { characterId: character.id } }),
+          1,
+        );
         await request(
           "player",
           "POST",

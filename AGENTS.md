@@ -9,3 +9,7 @@ Comunicar en español. Conservar tecnologías, contratos y cambios existentes.
 - Crear otra rama solo si hay una necesidad concreta de aislamiento o el usuario lo indica; explicar el motivo y reintegrar el trabajo validado en testing.
 - Las ramas anteriores se consolidaron y sus puntas se conservan en etiquetas `archive/2026-10-26/...`. No usar esas etiquetas como base rutinaria de desarrollo.
 - Ejecutar las verificaciones del repositorio antes de publicar. No desplegar ni modificar la base remota por el solo hecho de publicar testing.
+
+## Texto de commits y GitHub
+
+Los mensajes de commits, títulos, descripciones y comentarios de GitHub se escriben en español. Usar un tono directo y natural, con cambios concretos y pruebas reales; evitar frases ceremoniosas o texto genérico. No atribuir al usuario pruebas o acciones que no realizó.

@@ -72,3 +72,7 @@ Las altas versionadas inicializan PV base con dado máximo y Constitución final
 ## Ampliación: pericia inicial del pícaro
 
 La creación guiada permite dos pericias entre las habilidades concedidas por clase y trasfondo y guarda su fuente. La API valida cupo, unicidad, clase y competencia previa. RF-10 continúa parcial para los demás rasgos y decisiones de clase; este bloque no implementa progresión ni concede pericias de niveles posteriores.
+
+## Ficha inicial lista desde el creador
+
+El recorrido de nivel 1 incorpora protección inicial con compra legal usando la alternativa de oro de clase. La vista previa y el alta comparten cálculo; se guardan PV, protección equipada y saldo sin exigir después Completar ficha. Se añaden defensa sin armadura de monje/bárbaro, PV de enano y velocidad base de goliat. Ver `ficha-inicial.md` para límites: no equivale a completar magia de clase, armas, variantes ni progresión.

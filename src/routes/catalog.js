@@ -60,6 +60,8 @@ module.exports = ({ auth }) => {
         classSkillsVersion: 1,
         classBasicsVersion: 1,
         rogueExpertiseVersion: 1,
+        startingDefenseVersion: 1,
+        startingDefense: require("../game/starting-defense").catalog(),
         skills: require("../game/rules").SKILLS.map(([key, name]) => ({
           key,
           name,
