@@ -9,6 +9,8 @@ const {
   campaignAccess,
   transaction,
 } = require("../lib/http");
+const backgrounds = require("../game/backgrounds");
+const rules = require("../game/rules");
 const ability = z.number().int().min(1).max(30).default(10);
 const fields = z
   .object({
@@ -42,6 +44,7 @@ module.exports = ({ db, auth }) => {
             ? { campaignId, campaign: visibleCampaign(req.user.id) }
             : { ownerId: req.user.id },
           orderBy: { createdAt: "desc" },
+          omit: { gameData: true },
         }),
       );
     }),
@@ -49,13 +52,26 @@ module.exports = ({ db, auth }) => {
   router.post(
     "/",
     route(async (req, res) => {
-      const data = fields.parse(req.body);
+      const { creation, ...data } = fields
+        .extend({ creation: backgrounds.schema.optional() })
+        .parse(req.body);
+      const decision = creation
+        ? backgrounds.forCharacter(creation, data)
+        : null;
       res.status(201).json(
         await transaction(db, async (tx) => {
           if (data.campaignId)
             await campaignAccess(tx, data.campaignId, req.user.id);
           return tx.character.create({
-            data: { ...data, ownerId: req.user.id },
+            data: {
+              ...data,
+              ownerId: req.user.id,
+              ...(decision
+                ? {
+                    gameData: require("../game/creation-state")(data, decision),
+                  }
+                : {}),
+            },
           });
         }),
       );
@@ -68,15 +84,39 @@ module.exports = ({ db, auth }) => {
         data = fields.partial().parse(req.body);
       res.json(
         await transaction(db, async (tx) => {
+          const current = await tx.character.findFirst({
+            where: { id, ownerId: req.user.id },
+          });
+          if (!current) fail(404, "Personaje no encontrado");
           if (
-            !(await tx.character.findFirst({
-              where: { id, ownerId: req.user.id },
-            }))
+            current.gameData?.creation &&
+            ["race", "characterClass", "level", ...rules.ABILITIES].some(
+              (k) => data[k] !== undefined && data[k] !== current[k],
+            )
           )
-            fail(404, "Personaje no encontrado");
+            fail(
+              409,
+              "Esta ficha conserva decisiones de creación. Sus atributos, especie, clase y nivel requieren un flujo de progresión o corrección.",
+            );
           if (data.campaignId)
             await campaignAccess(tx, data.campaignId, req.user.id);
-          return tx.character.update({ where: { id }, data });
+          return tx.character.update({
+            where: { id },
+            data: {
+              ...data,
+              stateVersion: { increment: 1 },
+              ...(Object.keys(data).some(
+                (k) => !["name", "alignment", "campaignId"].includes(k),
+              )
+                ? {
+                    gameData: {
+                      ...require("../game/rules").state(current),
+                      configured: false,
+                    },
+                  }
+                : {}),
+            },
+          });
         }),
       );
     }),

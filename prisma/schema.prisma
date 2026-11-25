@@ -20,6 +20,8 @@ model User {
   memberships CampaignPlayer[]
   assignments MissionAssignment[]
   characters  Character[]
+  noteSections NoteSection[]
+  notes Note[]
 
   @@map("usuarios")
   @@schema("app")
@@ -108,6 +110,9 @@ model Encounter {
 }
 
 model Character {
+  stateVersion Int @default(0) @map("version_estado")
+  gameData Json @default("{}") @map("datos_juego")
+  commands CharacterCommand[]
   id             String    @id @default(uuid()) @db.Uuid
   ownerId        String    @map("usuario_id") @db.Uuid
   campaignId     String?   @map("campana_id") @db.Uuid
@@ -130,4 +135,43 @@ model Character {
   @@index([campaignId])
   @@map("personajes")
   @@schema("app")
+}
+
+model CharacterCommand {
+  id String @id @db.Uuid
+  characterId String @map("personaje_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  payloadHash String @map("payload_hash")
+  result Json
+  createdAt DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  @@index([characterId, createdAt])
+  @@map("comandos_personaje")
+  @@schema("app")
+}
+model NoteSection {
+ id String @id @default(uuid()) @db.Uuid
+ ownerId String @map("usuario_id") @db.Uuid
+ name String @db.VarChar(160)
+ order Int @default(0)
+ owner User @relation(fields:[ownerId], references:[id], onDelete:Cascade)
+ notes Note[]
+ @@index([ownerId])
+ @@map("secciones_notas")
+ @@schema("app")
+}
+model Note {
+ id String @id @default(uuid()) @db.Uuid
+ ownerId String @map("usuario_id") @db.Uuid
+ sectionId String @map("seccion_id") @db.Uuid
+ title String @db.VarChar(160)
+ text String @default("")
+ strokes Json @default("[]")
+ version Int @default(0)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ owner User @relation(fields:[ownerId],references:[id],onDelete:Cascade)
+ section NoteSection @relation(fields:[sectionId],references:[id],onDelete:Restrict)
+ @@index([ownerId,sectionId])
+ @@map("notas")
+ @@schema("app")
 }
