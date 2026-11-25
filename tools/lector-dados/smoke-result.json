@@ -1,0 +1,18 @@
+{
+  "test": "synthetic_empty_image_real_ollama",
+  "date": "2026-11-20T14:13:20.033Z",
+  "http": 200,
+  "elapsed_ms": 8738,
+  "result": {
+    "estado": "indeterminado",
+    "dado": "d20",
+    "valor": null,
+    "cara_superior_visible": false,
+    "confianza": "baja",
+    "observacion": "No se puede identificar la cara superior del dado.",
+    "confirmed": false,
+    "timestamp": "2026-11-20T14:13:20.023Z",
+    "revision": 2,
+    "imageUrl": "/api/last-image?v=2"
+  }
+}

@@ -1,3 +1,4 @@
+const { randomUUID } = require("node:crypto");
 const { Router } = require("express");
 const { z } = require("zod");
 const {
@@ -51,6 +52,12 @@ const fields = z.object({
   xpTotal: nonnegative.default(0),
   estimatedDifficulty: z.string().max(80).default(""),
 });
+// Participantes nominales; no crean personajes ni modifican sus estadísticas.
+// Valida los datos de iniciativa que confirmó el DM.
+const startInput = z.object({ players: z.array(z.object({
+ name:z.string().trim().min(1).max(120), roll:z.number().int().min(1).max(20),
+ modifier:z.number().int().min(-50).max(50)
+}).strict()).max(50).default([]) }).strict();
 module.exports = ({ db, auth }) => {
   const router = Router();
   router.use(auth);
@@ -113,9 +120,16 @@ module.exports = ({ db, auth }) => {
       }),
     ),
   );
+  // Permite al frontend evitar un inicio incompleto contra un backend anterior.
+  router.get('/:id/initiative-capabilities',route(async(req,res)=>{
+    await resourceAccess(db,'encounter',req.params.id,req.user.id,true);
+    res.json({playerInitiatives:true,version:1});
+  }));
   router.post(
     "/:id/start",
-    mutate((tx, e) => {
+    mutate((tx, e, req) => {
+      // Recibe las tiradas confirmadas; no confía en un total calculado por la web.
+      const {players}=startInput.parse(req.body ?? {});
       if (e.status !== "pending") fail(409, "El encuentro ya fue iniciado");
       const initiativeOrder = e.monsters
         .flatMap((m, group) =>
@@ -131,6 +145,13 @@ module.exports = ({ db, auth }) => {
             isPlayer: false,
           })),
         )
+        // Agrega los jugadores al orden de los monstruos y calcula su total.
+        .concat(players.map(p=>({
+          id:randomUUID(),name:p.name,isPlayer:true,roll:p.roll,modifier:p.modifier,
+          initiative:p.roll+p.modifier,
+          // Campos de compatibilidad, no son los PV del personaje.
+          hp:0,maxHp:0
+        })))
         .sort((a, b) => b.initiative - a.initiative);
       return tx.encounter.update({
         where: { id: e.id },

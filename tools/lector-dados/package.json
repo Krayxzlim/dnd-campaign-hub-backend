@@ -1,0 +1,19 @@
+{
+  "name": "iot-dice-reader",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lector de dados con ESP32-CAM, Ollama local y frontend web",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "sharp": "^0.35.5"
+  }
+}

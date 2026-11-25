@@ -717,6 +717,22 @@ test(
         );
       },
     );
+    await t.test("Iniciativas nominales confirmadas se validan y persisten", async () => {
+      const enc=await request("dm","POST","/encounters",{campaignId:campaign.id,name:"Iniciativa IoT",monsters:[]},201);
+      const endpoint='/encounters/'+enc.id+'/start';
+      assert.equal((await request('dm','GET','/encounters/'+enc.id+'/initiative-capabilities')).playerInitiatives,true);
+      await request('outsider','GET','/encounters/'+enc.id+'/initiative-capabilities',undefined,404);
+      for(const players of [[{name:"A",roll:21,modifier:0}],[{name:" ",roll:2,modifier:0}],[{name:"A",roll:2.5,modifier:0}],[{name:"A",roll:2,modifier:51}]]){
+        await request("dm","POST",endpoint,{players},400);
+      }
+      await request("player","POST",endpoint,{players:[{name:"A",roll:20,modifier:0}]},404);
+      const started=await request("dm","POST",endpoint,{players:[{name:"Lucía",roll:6,modifier:3},{name:"Iván",roll:20,modifier:-2}]});
+      assert.deepEqual(started.initiativeOrder.map(p=>p.initiative),[18,9]);
+      assert.equal(started.initiativeOrder[1].roll,6);assert.equal(started.initiativeOrder[1].isPlayer,true);
+      const loaded=await request("dm","GET",'/encounters/'+enc.id);
+      assert.deepEqual(loaded.initiativeOrder,started.initiativeOrder);
+      await request("dm","POST",endpoint,{},409);
+    });
     await t.test("Encounter lifecycle and campaign ownership", async () => {
       encounter = await request(
         "dm",

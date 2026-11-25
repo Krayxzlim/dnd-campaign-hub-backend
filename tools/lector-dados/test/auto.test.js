@@ -1,0 +1,23 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const sharp=require('sharp');
+const {AutoReader}=require('../src/auto');
+test('calibración nueva arma inmediatamente; reinicio exige retiro y no duplica lectura',async()=>{
+  const blank=await sharp({create:{width:64,height:48,channels:3,background:'black'}}).png().toBuffer();
+  const occupied=await sharp({create:{width:64,height:48,channels:3,background:'white'}}).png().toBuffer();
+  let frame=blank,reads=0;
+  const reader=new AutoReader({capture:async()=>frame,analyze:async()=>({valor:20}),onReading:()=>reads++,config:{stableMs:0}});
+  reader.schedule=()=>{};
+  await reader.calibrate();reader.start();
+  assert.equal(reader.phase,'esperando_dado');
+  frame=occupied;
+  for(let i=0;i<6;i++)await reader.tick();
+  assert.equal(reads,1);assert.equal(reader.phase,'esperando_retiro');
+  reader.stop();reader.start();
+  for(let i=0;i<6;i++)await reader.tick();
+  assert.equal(reads,1);
+  frame=blank;for(let i=0;i<4;i++)await reader.tick();
+  assert.equal(reader.phase,'esperando_dado');
+  reader.stop();await reader.calibrate();reader.start();
+  assert.equal(reader.phase,'esperando_dado');reader.stop();
+});
